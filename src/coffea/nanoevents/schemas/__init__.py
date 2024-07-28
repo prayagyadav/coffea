@@ -4,6 +4,8 @@ from .nanoaod import NanoAODSchema, PFNanoAODSchema
 from .pdune import PDUNESchema
 from .physlite import PHYSLITESchema
 from .treemaker import TreeMakerSchema
+from .edm4hep import EDM4HEPSchema
+from .fcc import FCCSchema
 
 __all__ = [
     "BaseSchema",
@@ -13,4 +15,6 @@ __all__ = [
     "PHYSLITESchema",
     "DelphesSchema",
     "PDUNESchema",
+    "EDM4HEPSchema",
+    "FCCSchema"
 ]
