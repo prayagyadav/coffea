@@ -324,7 +324,7 @@ class NanoEventsFactory:
                 schemaclass=schemaclass,
                 behavior=dict(schemaclass.behavior()),
                 metadata=metadata,
-                version="latest",
+                version="latest"
             )
 
             to_open = file
