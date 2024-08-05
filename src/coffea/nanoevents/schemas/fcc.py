@@ -25,14 +25,13 @@ class FCCSchema(BaseSchema):
     __dask_capable__ = True
 
     mixins_dictionary={
-        "EFlowTrack":"Cluster",
         "Jet":"RecoParticle",
         "Particle":"MCTruthParticle",
         "ReconstructedParticles":"RecoParticle",
         "MissingET":"RecoParticle"
     }
 
-    _momentum_fields_e = {"energy":"E", "momentum.x":"x", "momentum.y":"y", "momentum.z":"z"}
+    _momentum_fields_e = {"energy":"E", "momentum.x":"px", "momentum.y":"py", "momentum.z":"pz"}
     _replacement = {**_momentum_fields_e}
     _non_empty_composite_objects = [
         'EFlowNeutralHadron',
