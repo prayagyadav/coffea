@@ -29,6 +29,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 from . import _version
 
+__mod__ = "Prayag Yadav\nBranch: use_scikithep_vector"
+
 __version__ = _version.__version__
 
 __all__ = ["deprecations_as_errors"]
