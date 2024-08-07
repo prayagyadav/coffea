@@ -692,6 +692,8 @@ class NanoEventsFactory:
 
         events = self._events()
         if events is None:
+            print("Christopher Moltisanti")
+            print("Here is the form:\n", self._schema.form)
             events = awkward.from_buffers(
                 self._schema.form,
                 len(self),

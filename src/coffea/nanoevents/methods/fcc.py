@@ -1,30 +1,38 @@
 import awkward
 import dask_awkward
+from dask_awkward import dask_property
 import numpy
 
-from coffea.nanoevents.methods import base, vector, candidate
+from coffea.nanoevents.methods import base, vector
 
-PION_MASS = 0.13957018  # GeV
+# PION_MASS = 0.13957018  # GeV
 
 behavior = {}
 behavior.update(base.behavior)
-# vector behavior is included in candidate behavior
-behavior.update(candidate.behavior)
+
+class _FCCEvents(behavior["NanoEvents"]):
+    def __repr__(self):
+        # return f"<event {getattr(self,'run','??')}:\
+        #         {getattr(self,'luminosityBlock','??')}:\
+        #         {getattr(self,'event','??')}>"
+        return "FCC Events"
+
+
+behavior["NanoEvents"] = _FCCEvents
 
 def _set_repr_name(classname):
     def namefcn(self):
         return classname
-
-    # behavior[("__typestr__", classname)] = classname[0].lower() + classname[1:]
     behavior[classname].__repr__ = namefcn
 
 @awkward.mixin_class(behavior)
-class MCTruthParticle(vector.LorentzVector, base.NanoCollection):
-    """Generated Monte Carlo particles."""
+class MomentumCandidate(vector.LorentzVector):
+    """A Lorentz vector with charge
 
-    @awkward.mixin_class_method(numpy.add, {"MCTruthParticle"})
+    This mixin class requires the parent class to provide items `px`, `py`, `pz`, `E`, and `charge`."""
+    @awkward.mixin_class_method(numpy.add, {"MomentumCandidate"})
     def add(self, other):
-        """Add two MCTruthParticles together elementwise using `x`, `y`, `z`, `t`, and `charge` components"""
+        """Add two candidates together elementwise using `px`, `py`, `pz`, `E`, and `charge` components"""
         return awkward.zip(
             {
                 "px": self.px + other.px,
@@ -33,10 +41,35 @@ class MCTruthParticle(vector.LorentzVector, base.NanoCollection):
                 "E": self.E + other.E,
                 "charge": self.charge + other.charge,
             },
-            with_name="MCTruthParticle",
+            with_name="MomentumCandidate",
             behavior=self.behavior,
         )
 
+    def sum(self, axis=-1):
+        """Sum an array of vectors elementwise using `x`, `y`, `z`, `t`, and `charge` components"""
+        return awkward.zip(
+            {
+                "px": awkward.sum(self.px, axis=axis),
+                "py": awkward.sum(self.py, axis=axis),
+                "pz": awkward.sum(self.pz, axis=axis),
+                "E": awkward.sum(self.E, axis=axis),
+                "charge": awkward.sum(self.charge, axis=axis),
+            },
+            with_name="MomentumCandidate",
+            behavior=self.behavior,
+        )
+
+behavior.update(awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior))
+
+MomentumCandidateArray.ProjectionClass2D = vector.TwoVectorArray
+MomentumCandidateArray.ProjectionClass3D = vector.ThreeVectorArray
+MomentumCandidateArray.ProjectionClass4D = vector.LorentzVectorArray
+MomentumCandidateArray.MomentumClass = MomentumCandidateArray
+
+@awkward.mixin_class(behavior)
+class MCTruthParticle(MomentumCandidate, base.NanoCollection):
+    """Generated Monte Carlo particles."""
+    pass
     # @property
     # def matched_pfos(self, _dask_array_=None):
     #     """Returns an array of matched reconstructed particle objects for each generator particle."""
@@ -153,7 +186,7 @@ class MCTruthParticle(vector.LorentzVector, base.NanoCollection):
 
 _set_repr_name("MCTruthParticle")
 behavior.update(
-    awkward._util.copy_behaviors(vector.LorentzVector, MCTruthParticle, behavior)
+    awkward._util.copy_behaviors(MomentumCandidate, MCTruthParticle, behavior)
 )
 
 MCTruthParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
@@ -164,23 +197,28 @@ MCTruthParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 
 @awkward.mixin_class(behavior)
-class RecoParticle(vector.LorentzVector, base.NanoCollection):
+class RecoParticle(MomentumCandidate, base.NanoCollection):
     """Reconstructed particles."""
 
-    @awkward.mixin_class_method(numpy.add, {"RecoParticle"})
-    def add(self, other):
-        """Add two RecoParticles together elementwise using `x`, `y`, `z`, `t`, and `charge` components"""
-        return awkward.zip(
-            {
-                "px": self.px + other.px,
-                "py": self.py + other.py,
-                "pz": self.pz + other.pz,
-                "E": self.E + other.E,
-                "charge": self.charge + other.charge,
-            },
-            with_name="RecoParticle",
-            behavior=self.behavior,
-        )
+    @dask_property
+    def get_E(self):
+        """Returns Energy"""
+        return self.E
+
+    @get_E.dask
+    def get_E(self,dask_array):
+        """Returns Energy"""
+        return dask_array.E
+
+    def get_px(self, n):
+        print(n)
+        return self.px
+
+    def match_collection(self, idx):
+        """Returns matched particles"""
+        return self[idx.index]
+
+
 
     # @property
     # def matched_gen(self, _dask_array_=None):
@@ -200,7 +238,7 @@ class RecoParticle(vector.LorentzVector, base.NanoCollection):
 
 _set_repr_name("RecoParticle")
 behavior.update(
-    awkward._util.copy_behaviors(vector.LorentzVector, RecoParticle, behavior)
+    awkward._util.copy_behaviors(MomentumCandidate, RecoParticle, behavior)
 )
 
 RecoParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
