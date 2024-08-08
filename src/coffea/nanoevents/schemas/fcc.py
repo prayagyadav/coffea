@@ -44,10 +44,10 @@ class FCCSchema(BaseSchema):
         'Jet',
         'EFlowTrack'
     ]
-    nested_items = {
-        "ReconstructedParticlesidx": ["ReconstructedParticles#0", "ReconstructedParticles#1"]
-    }
-    """Nested collections, where nesting is accomplished by a fixed-length set of indexers"""
+    # nested_items = {
+    #     "ReconstructedParticlesidx": ["ReconstructedParticles#0", "ReconstructedParticles#1"]
+    # }
+    # """Nested collections, where nesting is accomplished by a fixed-length set of indexers"""
 
     def __init__(self, base_form, *args, **kwargs):
         super().__init__(base_form, *args, **kwargs)
@@ -66,33 +66,33 @@ class FCCSchema(BaseSchema):
             if not _base_collection.match(k) and not _trailing_under.match(k)
         }
 
-        # #create idxs
-        # idxs = {
-        #     k.split("/")[0]
-        #     for k in field_names
-        #     if _idxs.match(k)
-        # }
+        #create idxs
+        idxs = {
+            k.split("/")[0]
+            for k in field_names
+            if _idxs.match(k)
+        }
 
-        # repls = {idx.replace("#","idx") for idx in idxs}
-        # for idx, repl in zip(idxs, repls):
-        #     repl = idx.replace("#","idx")
-        #     content = {
-        #         k[2*len(idx)+2:]:branch_forms.pop(k)
-        #         for k in field_names
-        #         if k.startswith(f"{idx}/{idx}.")
-        #     }
-        #     output[repl] = zip_forms(content, repl, self.mixins_dictionary.get(repl, "NanoCollection"))
+        repls = {idx.replace("#","idx") for idx in idxs}
+        for idx, repl in zip(idxs, repls):
+            repl = idx.replace("#","idx")
+            content = {
+                k[2*len(idx)+2:]:branch_forms.pop(k)
+                for k in field_names
+                if k.startswith(f"{idx}/{idx}.")
+            }
+            output[repl] = zip_forms(content, repl, self.mixins_dictionary.get(repl, "NanoCollection"))
 
-        # # Merge idxs of the same variable
-        # idx_collection = {k.split("#")[0]+"idx" for k in idxs}
-        # out = output.copy()
-        # for idx_c in idx_collection:
-        #     content = {
-        #         k:output.pop(k)
-        #         for k in out
-        #         if k.startswith(idx_c)
-        #     }
-        #     output[idx_c] = zip_forms(content, idx_c, self.mixins_dictionary.get(idx_c, "NanoCollection"))
+        # Merge idxs of the same variable
+        idx_collection = {k.split("#")[0]+"idx" for k in idxs}
+        out = output.copy()
+        for idx_c in idx_collection:
+            content = {
+                k:output.pop(k)
+                for k in out
+                if k.startswith(idx_c)
+            }
+            output[idx_c] = zip_forms(content, idx_c, self.mixins_dictionary.get(idx_c, "NanoCollection"))
 
         # # Create nested indexer from Idx1, Idx2, ... arrays
         # for name, indexers in self.nested_items.items():
