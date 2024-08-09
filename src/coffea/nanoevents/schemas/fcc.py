@@ -12,6 +12,10 @@ _trailing_under = re.compile(r".*_[0-9]")
 _idxs = re.compile(r".*[\#]+.*")
 __dask_capable__ = True
 
+def sort_dict(d):
+    """Sort a dictionary by key"""
+    return {k:d[k] for k in sorted(d)}
+
 class FCCSchema(BaseSchema):
     """FCC schema builder
 
@@ -73,15 +77,15 @@ class FCCSchema(BaseSchema):
             if _idxs.match(k)
         }
 
-        repls = {idx.replace("#","idx") for idx in idxs}
-        for idx, repl in zip(idxs, repls):
+        for idx in idxs:
             repl = idx.replace("#","idx")
+            # print(f"idx : {idx}\nrepl : {repl}")
             content = {
                 k[2*len(idx)+2:]:branch_forms.pop(k)
                 for k in field_names
                 if k.startswith(f"{idx}/{idx}.")
             }
-            output[repl] = zip_forms(content, repl, self.mixins_dictionary.get(repl, "NanoCollection"))
+            output[repl] = zip_forms(sort_dict(content), repl, self.mixins_dictionary.get(repl, "NanoCollection"))
 
         # Merge idxs of the same variable
         idx_collection = {k.split("#")[0]+"idx" for k in idxs}
@@ -92,7 +96,17 @@ class FCCSchema(BaseSchema):
                 for k in out
                 if k.startswith(idx_c)
             }
-            output[idx_c] = zip_forms(content, idx_c, self.mixins_dictionary.get(idx_c, "NanoCollection"))
+            output[idx_c] = zip_forms(sort_dict(content), idx_c, self.mixins_dictionary.get(idx_c, "NanoCollection"))
+
+        # # Create nested indexer from Idx1, Idx2, ... arrays
+        # for idx in idxs:
+        #     repl = idx.replace("#","idx")
+        #     for attr in ['index','collectionID']:
+        #         output[repl+] = transforms.nestedindex_form(
+        #             [branch_forms.pop(f"{idx}/{idx}.{attr}") for idx in indexers]
+        #         )
+
+
 
         # # Create nested indexer from Idx1, Idx2, ... arrays
         # for name, indexers in self.nested_items.items():
@@ -117,7 +131,7 @@ class FCCSchema(BaseSchema):
             content = {(k.replace(k,self._replacement[k]) if k in self._replacement else k):v for k,v in content.items() }
 
             output[name] = zip_forms(
-                content, name, mixin
+                sort_dict(content), name, mixin
             )
             output[name]["content"]["parameters"].update(
                 {
@@ -143,9 +157,12 @@ class FCCSchema(BaseSchema):
                         for k in unlisted.keys()
                         if k.startswith(record_name+"/")
                     }
-                    output[record_name] = zip_forms(contents, record_name, self.mixins_dictionary.get(record_name, "NanoCollection"))
+                    output[record_name] = zip_forms(sort_dict(contents), record_name, self.mixins_dictionary.get(record_name, "NanoCollection"))
             else: # Singletons
                 output[name] = content
+
+        #sort the output by key
+        output = sort_dict(output)
 
         return output.keys(), output.values()
 
