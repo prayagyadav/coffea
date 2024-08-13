@@ -5,7 +5,7 @@ from .pdune import PDUNESchema
 from .physlite import PHYSLITESchema
 from .treemaker import TreeMakerSchema
 from .edm4hep import EDM4HEPSchema
-from .fcc import FCCSchema
+from .fcc import FCCSchema, FCC
 
 __all__ = [
     "BaseSchema",
@@ -16,5 +16,6 @@ __all__ = [
     "DelphesSchema",
     "PDUNESchema",
     "EDM4HEPSchema",
-    "FCCSchema"
+    "FCCSchema",
+    "FCC"
 ]

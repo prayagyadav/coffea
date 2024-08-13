@@ -11,7 +11,6 @@ from coffea.nanoevents.util import concat
 from numba.cuda.args import Out
 
 _all_collections = re.compile(r".*[\/]+.*")
-# _base_collection = re.compile(r".*[\#\/]+.*")
 _trailing_under = re.compile(r".*_[0-9]")
 _idxs = re.compile(r".*[\#]+.*")
 __dask_capable__ = True
@@ -73,13 +72,12 @@ class FCCSchema(BaseSchema):
             for collection_name in field_names
             if _all_collections.match(collection_name)
         }
-        # print("All Collections: ", all_collections)
+
         collections = {
                     collection_name
                     for collection_name in all_collections
                     if not _idxs.match(collection_name) and not _trailing_under.match(collection_name)
                 }
-        # print("Collection: ", collections)
 
         #create idxs
         idxs = {
@@ -87,7 +85,6 @@ class FCCSchema(BaseSchema):
             for k in all_collections
             if _idxs.match(k)
         }
-        # print("idxs: ", idxs)
 
         for idx in idxs:
             repl = idx.replace("#","idx")
@@ -96,12 +93,11 @@ class FCCSchema(BaseSchema):
                 for k in field_names
                 if k.startswith(f"{idx}/{idx}.")
             }
-            for idx_name, idx_fill in idx_content.items():
-                output[repl+"_"+idx_name] = idx_fill
+            output[repl] = zip_forms(sort_dict(idx_content), idx, self.mixins_dictionary.get(idx, "NanoCollection") )
+
 
         # Create other collections
         for coll_name in collections:
-            print(coll_name)
             mixin = self.mixins_dictionary.get(coll_name, "NanoCollection")
             if coll_name not in self._non_empty_composite_objects:
                 continue
@@ -125,9 +121,8 @@ class FCCSchema(BaseSchema):
             )
 
         # Unlisted Collections
-        # print("Output keys before unlisted: ",output.keys())
         unlisted = {k:v for k,v in branch_forms.items() if ((k not in output.keys()) and (k not in collections)) and not _idxs.match(k)}
-        # print(unlisted)
+
         for name, content in unlisted.items():
             if content["class"] == 'ListOffsetArray':
                 if content["content"]["class"] == 'RecordArray':
@@ -171,6 +166,8 @@ class FCCSchema_zip_missing(BaseSchema):
 
     All collections are zipped into one `base.NanoEvents` record and
     returned.
+
+    The hash tagged branches are all zipped together
     """
 
     __dask_capable__ = True
@@ -204,99 +201,120 @@ class FCCSchema_zip_missing(BaseSchema):
             self._form["contents"]
         )
 
+        self._form["fields"], self._form["contents"] = self._zip_idxs(
+            self._form["fields"],
+            self._form["contents"]
+        )
+
+
     def _build_collections(self, field_names, input_contents):
+            branch_forms = {
+                k: v for k, v in zip(field_names, input_contents)
+            }
+
+            output = {}
+
+            all_collections = {
+                collection_name.split("/")[0]
+                for collection_name in field_names
+                if _all_collections.match(collection_name)
+            }
+
+            collections = {
+                        collection_name
+                        for collection_name in all_collections
+                        if not _idxs.match(collection_name) and not _trailing_under.match(collection_name)
+                    }
+
+            #create idxs
+            idxs = {
+                k.split("/")[0]
+                for k in all_collections
+                if _idxs.match(k)
+            }
+
+            for idx in idxs:
+                repl = idx.replace("#","idx")
+                idx_content = {
+                    k[2*len(idx)+2:]:branch_forms.pop(k)
+                    for k in field_names
+                    if k.startswith(f"{idx}/{idx}.")
+                }
+                output[repl] = zip_forms(sort_dict(idx_content), repl, self.mixins_dictionary.get(repl, "NanoCollection") )
+
+
+            # Create other collections
+            for coll_name in collections:
+                mixin = self.mixins_dictionary.get(coll_name, "NanoCollection")
+                if coll_name not in self._non_empty_composite_objects:
+                    continue
+                collection_content = {
+                    k[(2*len(coll_name) + 2) :]: branch_forms.pop(k)
+                    for k in field_names
+                    if k.startswith(f"{coll_name}/{coll_name}.")
+                }
+
+                #Change the name of some fields to facilitate vector and other type of object's construction
+                collection_content = {(k.replace(k,self._replacement[k]) if k in self._replacement else k):v for k,v in collection_content.items() }
+
+                output[coll_name] = zip_forms(
+                    sort_dict(collection_content), coll_name, mixin
+                )
+                output[coll_name]["content"]["parameters"].update(
+                    {
+                        # "__doc__": branch_forms[coll_name]["parameters"]["__doc__"],
+                        "collection_name": coll_name,
+                    }
+                )
+
+            # Unlisted Collections
+            unlisted = {k:v for k,v in branch_forms.items() if ((k not in output.keys()) and (k not in collections)) and not _idxs.match(k)}
+
+            for name, content in unlisted.items():
+                if content["class"] == 'ListOffsetArray':
+                    if content["content"]["class"] == 'RecordArray':
+                        if len(content["content"]["fields"]) == 0: # Remove empty branches
+                            continue
+                elif content["class"] == 'RecordArray':
+                    if len(content["contents"]) == 0 : # Remove empty branches
+                        continue
+                    else:
+                        record_name = name.split("/")[0]
+                        contents = {
+                            k[2*len(record_name)+2:]:branch_forms.pop(k)
+                            for k in unlisted.keys()
+                            if k.startswith(record_name+"/")
+                        }
+                        output[record_name] = zip_forms(sort_dict(contents), record_name, self.mixins_dictionary.get(record_name, "NanoCollection"))
+                else: # Singletons
+                    output[name] = content
+
+            #sort the output by key
+            output = sort_dict(output)
+
+            return output.keys(), output.values()
+
+    def _zip_idxs(self, field_names, input_contents):
         branch_forms = {
             k: v for k, v in zip(field_names, input_contents)
         }
-        output = {}
-
-        # Turn any special classes into the appropriate awkward form
-        collections = {
-            k
-            for k in field_names
-            if not _base_collection.match(k) and not _trailing_under.match(k)
-        }
-
-        #create idxs
+        #Zip the indexed branches
+        # All the ReconstructedParticleidx0, ReconstructedParticleidx1, etc are zipped into one ReconstructedParticleidx
         idxs = {
-            k.split("/")[0]
+            k.split('idx')[0]+'idx'
             for k in field_names
-            if _idxs.match(k)
+            if 'idx' in k
         }
-
         for idx in idxs:
-            repl = idx.replace("#","idx")
-            # print(idx)
             content = {
-                k[2*len(idx)+2:]:branch_forms.pop(k)
+                'idx'+k.split('idx')[1]:branch_forms.pop(k)
                 for k in field_names
-                if k.startswith(f"{idx}/{idx}.")
+                if k.startswith(idx)
             }
-            # print({k:v["offsets"] for k,v in content.items()})
-            output[repl] = zip_forms(sort_dict(content), repl, self.mixins_dictionary.get(repl, "NanoCollection"))
+            branch_forms[idx] = zip_forms(sort_dict(content), idx, self.mixins_dictionary.get(idx, "NanoCollection") )
 
-        # Merge idxs of the same variable
-        idx_collection = {k.split("#")[0]+"idx" for k in idxs}
-        out = output.copy()
-        for idx_c in idx_collection:
-            content = {
-                k:output.pop(k)
-                for k in out
-                if k.startswith(idx_c)
-            }
-            output[idx_c] = zip_forms(sort_dict(content), idx_c, self.mixins_dictionary.get(idx_c, "NanoCollection"))
-
-
-
-        # Create other collections
-        for name in collections:
-            mixin = self.mixins_dictionary.get(name, "NanoCollection")
-            if name not in self._non_empty_composite_objects:
-                continue
-            content = {
-                k[(2*len(name) + 2) :]: branch_forms.pop(k)
-                for k in field_names
-                if k.startswith(f"{name}/{name}.")
-            }
-
-            #Change the name of some fields to facilitate vector and other type of object's construction
-            content = {(k.replace(k,self._replacement[k]) if k in self._replacement else k):v for k,v in content.items() }
-
-            output[name] = zip_forms(
-                sort_dict(content), name, mixin
-            )
-            output[name]["content"]["parameters"].update(
-                {
-                    "__doc__": branch_forms[name]["parameters"]["__doc__"],
-                    "collection_name": name,
-                }
-            )
-
-        # Unlisted Collections
-        unlisted = {k:v for k,v in branch_forms.items() if k not in output.keys() and not _idxs.match(k)}
-        for name, content in unlisted.items():
-            if content["class"] == 'ListOffsetArray':
-                if content["content"]["class"] == 'RecordArray':
-                    if len(content["content"]["fields"]) == 0: # Remove empty branches
-                        continue
-            elif content["class"] == 'RecordArray':
-                if len(content["contents"]) == 0 : # Remove empty branches
-                    continue
-                else:
-                    record_name = name.split("/")[0]
-                    contents = {
-                        k[2*len(record_name)+2:]:branch_forms.pop(k)
-                        for k in unlisted.keys()
-                        if k.startswith(record_name+"/")
-                    }
-                    output[record_name] = zip_forms(sort_dict(contents), record_name, self.mixins_dictionary.get(record_name, "NanoCollection"))
-            else: # Singletons
-                output[name] = content
-
-        #sort the output by key
-        output = sort_dict(output)
-
-        return output.keys(), output.values()
+        branch_forms = sort_dict(branch_forms)
+        return branch_forms.keys(), branch_forms.values()
 
     @classmethod
     def behavior(cls):
@@ -310,6 +328,9 @@ class FCCSchema_zip_missing(BaseSchema):
         return behavior
 
 class FCC():
+    """
+    Class to choose the required variant of FCCSchema
+    """
     def __init__(self, version="latest", zip_missing=False):
         self._version = version
         self._zip_missing = zip_missing

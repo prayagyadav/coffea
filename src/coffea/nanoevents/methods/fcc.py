@@ -2,6 +2,7 @@ import awkward
 import dask_awkward
 from dask_awkward import dask_property
 import numpy
+import numba
 
 from coffea.nanoevents.methods import base, vector
 
@@ -9,6 +10,16 @@ from coffea.nanoevents.methods import base, vector
 
 behavior = {}
 behavior.update(base.behavior)
+
+
+@numba.vectorize(
+    [
+        numba.float32(numba.float32, numba.float32, numba.float32, numba.float32),
+        numba.float64(numba.float64, numba.float64, numba.float64, numba.float64),
+    ]
+)
+def _mass2(t, x, y, z):
+    return t * t - x * x - y * y - z * z
 
 class _FCCEvents(behavior["NanoEvents"]):
     def __repr__(self):
@@ -198,25 +209,16 @@ MCTruthParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 @awkward.mixin_class(behavior)
 class RecoParticle(MomentumCandidate, base.NanoCollection):
-    """Reconstructed particles."""
+    """Reconstructed particles"""
 
-    @dask_property
-    def get_E(self):
-        """Returns Energy"""
-        return self.E
-
-    @get_E.dask
-    def get_E(self,dask_array):
-        """Returns Energy"""
-        return dask_array.E
-
-    def get_px(self, n):
-        print(n)
-        return self.px
+    # @awkward.mixin_class_method(vector.LorentzVector.mass)
+    @property
+    def absolute_mass(self):
+        return numpy.sqrt(numpy.abs(self.mass2))
 
     def match_collection(self, idx):
         """Returns matched particles"""
-        return self[idx]
+        return self[idx.index]
 
 
 
