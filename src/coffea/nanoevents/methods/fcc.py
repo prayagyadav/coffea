@@ -1,284 +1,328 @@
-import awkward
-import dask_awkward
-import numpy
+import re
 
-from coffea.nanoevents.methods import base, vector
+import copy
+from sys import version
+from dask_awkward.lib.core import dask_method, dask_property
 
-PION_MASS = 0.13957018  # GeV
+from coffea.nanoevents import transforms
+from coffea.nanoevents.methods.fcc import RecoParticle
+from coffea.nanoevents.schemas.base import BaseSchema, nest_jagged_forms, zip_forms
+from coffea.nanoevents.util import concat
+from numba.cuda.args import Out
 
-behavior = {}
+_all_collections = re.compile(r".*[\/]+.*")
+# _base_collection = re.compile(r".*[\#\/]+.*")
+_trailing_under = re.compile(r".*_[0-9]")
+_idxs = re.compile(r".*[\#]+.*")
+__dask_capable__ = True
 
+def sort_dict(d):
+    """Sort a dictionary by key"""
+    return {k:d[k] for k in sorted(d)}
 
-@awkward.mixin_class(behavior)
-class MCTruthParticle(vector.LorentzVectorM, base.NanoCollection):
-    """Generated Monte Carlo particles."""
+class FCCSchema(BaseSchema):
+    """FCC schema builder
 
-    # @property
-    # def matched_pfos(self, _dask_array_=None):
-    #     """Returns an array of matched reconstructed particle objects for each generator particle."""
-    #     if _dask_array_ is not None:
-    #         collection_name = self.layout.purelist_parameter("collection_name")
-    #         original_from = self.behavior["__original_array__"]()[collection_name]
-    #         original = self.behavior["__original_array__"]().PandoraPFOs
-    #         return original._apply_global_mapping(
-    #             _dask_array_,
-    #             original_from,
-    #             self.behavior["__original_array__"]().RecoMCTruthLink.Gmc_index,
-    #             self.behavior["__original_array__"]().RecoMCTruthLink.Greco_index,
-    #             _dask_array_=original,
-    #         )
-    #     raise RuntimeError("Not reachable in dask mode!")
+    The FCC schema is built from all branches found in the supplied file,
+    based on the naming pattern of the branches.
 
-    # @property
-    # def matched_clusters(self, _dask_array_=None):
-    #     """Returns an array of matched cluster particle objects for each generator particle."""
-    #     if _dask_array_ is not None:
-    #         collection_name = self.layout.purelist_parameter("collection_name")
-    #         original_from = self.behavior["__original_array__"]()[collection_name]
-    #         original = self.behavior["__original_array__"]().PandoraClusters
-    #         return original._apply_global_mapping(
-    #             _dask_array_,
-    #             original_from,
-    #             self.behavior["__original_array__"]().ClusterMCTruthLink.Gmc_index,
-    #             self.behavior["__original_array__"]().ClusterMCTruthLink.Gcluster_index,
-    #             _dask_array_=original,
-    #         )
-    #     raise RuntimeError("Not reachable in dask mode!")
+    All collections are zipped into one `base.NanoEvents` record and
+    returned.
+    """
 
-    # @property
-    # def matched_trks(self, _dask_array_=None):
-    #     """Returns an array of matched cluster particle objects for each generator particle."""
-    #     if _dask_array_ is not None:
-    #         collection_name = self.layout.purelist_parameter("collection_name")
-    #         original_from = self.behavior["__original_array__"]()[collection_name]
-    #         original = self.behavior["__original_array__"]().MarlinTrkTracks
-    #         return original._apply_global_mapping(
-    #             _dask_array_,
-    #             original_from,
-    #             self.behavior[
-    #                 "__original_array__"
-    #             ]().MarlinTrkTracksMCTruthLink.Gmc_index,
-    #             self.behavior[
-    #                 "__original_array__"
-    #             ]().MarlinTrkTracksMCTruthLink.Gtrk_index,
-    #             _dask_array_=original,
-    #         )
-    #     raise RuntimeError("Not reachable in dask mode!")
+    __dask_capable__ = True
 
-    # def _apply_nested_global_index(self, index, nested_counts, _dask_array_=None):
-    #     """As _apply_global_index but expects one additional layer of nesting to get specified."""
-    #     if isinstance(index, int):
-    #         out = self._content()[index]
-    #         return awkward.Record(out, behavior=self.behavior)
+    mixins_dictionary={
+        "Jet":"RecoParticle",
+        "Particle":"MCTruthParticle",
+        "ReconstructedParticles":"RecoParticle",
+        "MissingET":"RecoParticle"
+    }
 
-    #     def flat_take(layout):
-    #         idx = awkward.Array(layout)
-    #         return self._content()[idx.mask[idx >= 0]]
+    _momentum_fields_e = {"energy":"E", "momentum.x":"px", "momentum.y":"py", "momentum.z":"pz"}
+    _replacement = {**_momentum_fields_e}
+    _non_empty_composite_objects = [
+        'EFlowNeutralHadron',
+        'Particle',
+        'ReconstructedParticles',
+        'EFlowPhoton',
+        'MCRecoAssociations',
+        'MissingET',
+        'ParticleIDs',
+        'Jet',
+        'EFlowTrack'
+    ]
 
-    #     def descend(layout, depth, **kwargs):
-    #         if layout.purelist_depth == 1:
-    #             return flat_take(layout)
+    def __init__(self, base_form, version="latest"):
+        super().__init__(base_form)
 
-    #     (index_out,) = awkward.broadcast_arrays(
-    #         index._meta if isinstance(index, dask_awkward.Array) else index
-    #     )
-    #     nested_counts_out = (
-    #         nested_counts._meta
-    #         if isinstance(nested_counts, dask_awkward.Array)
-    #         else nested_counts
-    #     )
-    #     index_out = awkward.unflatten(
-    #         index_out, awkward.flatten(nested_counts_out), axis=-1
-    #     )
-    #     layout_out = awkward.transform(descend, index_out.layout, highlevel=False)
-    #     out = awkward.Array(layout_out, behavior=self.behavior)
-
-    #     if isinstance(index, dask_awkward.Array):
-    #         return _dask_array_.map_partitions(
-    #             base._ClassMethodFn("_apply_nested_global_index"),
-    #             index,
-    #             nested_counts,
-    #             label="_apply_nested_global_index",
-    #             meta=out,
-    #         )
-    #     return out
-
-    # @property
-    # def parents(self, _dask_array_=None):
-    #     if _dask_array_ is not None:
-    #         collection_name = self.layout.purelist_parameter("collection_name")
-    #         original = self.behavior["__original_array__"]()[collection_name]
-    #         return original._apply_nested_global_index(
-    #             self.behavior["__original_array__"]().GMCParticlesSkimmedParentsIndex,
-    #             original.parents_counts,
-    #             _dask_array_=original,
-    #         )
-    #     raise RuntimeError("Not reachable in dask mode!")
-
-    # @property
-    # def children(self, _dask_array_=None):
-    #     if _dask_array_ is not None:
-    #         collection_name = self.layout.purelist_parameter("collection_name")
-    #         original = self.behavior["__original_array__"]()[collection_name]
-    #         return original._apply_nested_global_index(
-    #             self.behavior["__original_array__"]().GMCParticlesSkimmedParentsIndex,
-    #             original.children_counts,
-    #             _dask_array_=original,
-    #         )
-    #     raise RuntimeError("Not reachable in dask mode!")
-
-
-@awkward.mixin_class(behavior)
-class RecoParticle(vector.LorentzVector, base.NanoCollection):
-    """Reconstructed particles."""
-
-    # @property
-    # def matched_gen(self, _dask_array_=None):
-    #     """Returns an array of matched generator particle objects for each reconstructed particle."""
-    #     if _dask_array_ is not None:
-    #         collection_name = self.layout.purelist_parameter("collection_name")
-    #         original_from = self.behavior["__original_array__"]()[collection_name]
-    #         original = self.behavior["__original_array__"]().MCParticlesSkimmed
-    #         return original._apply_global_mapping(
-    #             _dask_array_,
-    #             original_from,
-    #             self.behavior["__original_array__"]().RecoMCTruthLink.Greco_index,
-    #             self.behavior["__original_array__"]().RecoMCTruthLink.Gmc_index,
-    #             _dask_array_=original,
-    #         )
-    #     raise RuntimeError("Not reachable in dask mode!")
-
-
-@awkward.mixin_class(behavior)
-class Cluster(vector.PtThetaPhiELorentzVector, base.NanoCollection):
-    """Clusters."""
-
-    @property
-    def matched_gen(self, _dask_array_=None):
-        """Returns an array of matched generator particle objects for each cluster."""
-        if _dask_array_ is not None:
-            collection_name = self.layout.purelist_parameter("collection_name")
-            original_from = self.behavior["__original_array__"]()[collection_name]
-            original = self.behavior["__original_array__"]().MCParticlesSkimmed
-            return original._apply_global_mapping(
-                _dask_array_,
-                original_from,
-                self.behavior["__original_array__"]().ClusterMCTruthLink.Gcluster_index,
-                self.behavior["__original_array__"]().ClusterMCTruthLink.Gmc_index,
-                _dask_array_=original,
-            )
-        raise RuntimeError("Not reachable in dask mode!")
-
-
-@awkward.mixin_class(behavior)
-class Track(vector.LorentzVectorM, base.NanoEvents, base.NanoCollection):
-    """Tracks."""
-
-    @property
-    def matched_gen(self, _dask_array_=None):
-        """Returns an array of matched generator particle objects for each track."""
-        if _dask_array_ is not None:
-            collection_name = self.layout.purelist_parameter("collection_name")
-            original_from = self.behavior["__original_array__"]()[collection_name]
-            original = self.behavior["__original_array__"]().MCParticlesSkimmed
-            return original._apply_global_mapping(
-                _dask_array_,
-                original_from,
-                self.behavior[
-                    "__original_array__"
-                ]().MarlinTrkTracksMCTruthLink.Gtrk_index,
-                self.behavior[
-                    "__original_array__"
-                ]().MarlinTrkTracksMCTruthLink.Gmc_index,
-                _dask_array_=original,
-            )
-        raise RuntimeError("Not reachable in dask mode!")
-
-    @property
-    def pt(self):
-        r"""transverse momentum
-        mag :: magnetic field strength in T
-
-        source: https://github.com/PandoraPFA/MarlinPandora/blob/master/src/TrackCreator.cc#LL521
-        """
-        metadata = self.behavior["__original_array__"]().get_metadata()
-
-        if metadata is None or "b_field" not in metadata.keys():
-            print(
-                "Track momentum requires value of magnetic field. \n"
-                "Please have 'metadata' argument in from_root function have"
-                "key 'b_field' with the value of magnetic field."
-            )
-            raise ValueError(
-                "Track momentum requires value of magnetic field. \n"
-                "Please have 'metadata' argument in from_root function have"
-                "key 'b_field' with the value of magnetic field."
-            )
-        else:
-            b_field = metadata["b_field"]
-            return b_field * 2.99792e-4 / numpy.abs(self["omega"])
-
-    @property
-    def phi(self):
-        r"""phi of momentum"""
-        return self["phi"]
-
-    @property
-    def x(self):
-        r"""x momentum"""
-        return numpy.cos(self["phi"]) * self.pt
-
-    @property
-    def y(self):
-        r"""y momentum"""
-        return numpy.sin(self["phi"]) * self.pt
-
-    @property
-    def z(self):
-        r"""z momentum"""
-        return self["tanLambda"] * self.pt
-
-    @property
-    def mass(self):
-        r"""mass of the track - assumed to be the mass of a pion
-        source: https://github.com/iLCSoft/MarlinTrk/blob/c53d868979ef6db26077746ce264633819ffcf4f/src/MarlinAidaTTTrack.cc#LL54C3-L58C3
-        """
-        return PION_MASS * awkward.ones_like(self["omega"])
-
-
-@awkward.mixin_class(behavior)
-class ParticleLink(base.NanoCollection):
-    """MCRecoParticleAssociation objects."""
-
-    @property
-    def reco_mc_index(self):
-        """
-        returns an array of indices mapping to generator particles for each reconstructed particle
-        """
-        arr_reco = self.reco_index
-        arr_mc = self.mc_index
-
-        # this is just to shape the index array properly
-        sorted_reco = arr_reco[awkward.argsort(arr_reco)]
-        sorted_mc = arr_mc[awkward.argsort(arr_reco)]
-        proper_indices = awkward.unflatten(
-            sorted_mc, awkward.flatten(awkward.run_lengths(sorted_reco), axis=1), axis=1
+        self._form["fields"], self._form["contents"] = self._build_collections(
+            self._form["fields"],
+            self._form["contents"]
         )
 
-        return proper_indices
+    def _build_collections(self, field_names, input_contents):
+        branch_forms = {
+            k: v for k, v in zip(field_names, input_contents)
+        }
 
-    @property
-    def debug_index_shaping(self):
-        """
-        function acting as a canned reproducer of the source of the problem in the above function
-        **just for debugging purposes**
-        """
-        arr_reco = self.reco_index
-        arr_mc = self.mc_index
+        output = {}
 
-        sorted_reco = arr_reco[awkward.argsort(arr_reco)]
-        sorted_mc = arr_mc[awkward.argsort(arr_reco)]
+        all_collections = {
+            collection_name.split("/")[0]
+            for collection_name in field_names
+            if _all_collections.match(collection_name)
+        }
+        # print("All Collections: ", all_collections)
+        collections = {
+                    collection_name
+                    for collection_name in all_collections
+                    if not _idxs.match(collection_name) and not _trailing_under.match(collection_name)
+                }
+        # print("Collection: ", collections)
 
-        print(sorted_reco, sorted_mc)
+        #create idxs
+        idxs = {
+            k.split("/")[0]
+            for k in all_collections
+            if _idxs.match(k)
+        }
+        # print("idxs: ", idxs)
 
-        return sorted_reco  # only return one due to type constraints
+        for idx in idxs:
+            repl = idx.replace("#","idx")
+            idx_content = {
+                k[2*len(idx)+2:]:branch_forms.pop(k)
+                for k in field_names
+                if k.startswith(f"{idx}/{idx}.")
+            }
+            for idx_name, idx_fill in idx_content.items():
+                output[repl+"_"+idx_name] = idx_fill
+
+        # Create other collections
+        for coll_name in collections:
+            print(coll_name)
+            mixin = self.mixins_dictionary.get(coll_name, "NanoCollection")
+            if coll_name not in self._non_empty_composite_objects:
+                continue
+            collection_content = {
+                k[(2*len(coll_name) + 2) :]: branch_forms.pop(k)
+                for k in field_names
+                if k.startswith(f"{coll_name}/{coll_name}.")
+            }
+
+            #Change the name of some fields to facilitate vector and other type of object's construction
+            collection_content = {(k.replace(k,self._replacement[k]) if k in self._replacement else k):v for k,v in collection_content.items() }
+
+            output[coll_name] = zip_forms(
+                sort_dict(collection_content), coll_name, mixin
+            )
+            output[coll_name]["content"]["parameters"].update(
+                {
+                    # "__doc__": branch_forms[coll_name]["parameters"]["__doc__"],
+                    "collection_name": coll_name,
+                }
+            )
+
+        # Unlisted Collections
+        # print("Output keys before unlisted: ",output.keys())
+        unlisted = {k:v for k,v in branch_forms.items() if ((k not in output.keys()) and (k not in collections)) and not _idxs.match(k)}
+        # print(unlisted)
+        for name, content in unlisted.items():
+            if content["class"] == 'ListOffsetArray':
+                if content["content"]["class"] == 'RecordArray':
+                    if len(content["content"]["fields"]) == 0: # Remove empty branches
+                        continue
+            elif content["class"] == 'RecordArray':
+                if len(content["contents"]) == 0 : # Remove empty branches
+                    continue
+                else:
+                    record_name = name.split("/")[0]
+                    contents = {
+                        k[2*len(record_name)+2:]:branch_forms.pop(k)
+                        for k in unlisted.keys()
+                        if k.startswith(record_name+"/")
+                    }
+                    output[record_name] = zip_forms(sort_dict(contents), record_name, self.mixins_dictionary.get(record_name, "NanoCollection"))
+            else: # Singletons
+                output[name] = content
+
+        #sort the output by key
+        output = sort_dict(output)
+
+        return output.keys(), output.values()
+
+    @classmethod
+    def behavior(cls):
+        """Behaviors necessary to implement this schema"""
+        from coffea.nanoevents.methods import base, fcc, vector
+
+        behavior = {}
+        behavior.update(base.behavior)
+        behavior.update(vector.behavior)
+        behavior.update(fcc.behavior)
+        return behavior
+
+class FCCSchema_zip_missing(BaseSchema):
+    """FCC schema builder
+
+    The FCC schema is built from all branches found in the supplied file,
+    based on the naming pattern of the branches.
+
+    All collections are zipped into one `base.NanoEvents` record and
+    returned.
+    """
+
+    __dask_capable__ = True
+
+    mixins_dictionary={
+        "Jet":"RecoParticle",
+        "Particle":"MCTruthParticle",
+        "ReconstructedParticles":"RecoParticle",
+        "MissingET":"RecoParticle"
+    }
+
+    _momentum_fields_e = {"energy":"E", "momentum.x":"px", "momentum.y":"py", "momentum.z":"pz"}
+    _replacement = {**_momentum_fields_e}
+    _non_empty_composite_objects = [
+        'EFlowNeutralHadron',
+        'Particle',
+        'ReconstructedParticles',
+        'EFlowPhoton',
+        'MCRecoAssociations',
+        'MissingET',
+        'ParticleIDs',
+        'Jet',
+        'EFlowTrack'
+    ]
+
+    def __init__(self, base_form, version="latest"):
+        super().__init__(base_form)
+
+        self._form["fields"], self._form["contents"] = self._build_collections(
+            self._form["fields"],
+            self._form["contents"]
+        )
+
+    def _build_collections(self, field_names, input_contents):
+        branch_forms = {
+            k: v for k, v in zip(field_names, input_contents)
+        }
+        output = {}
+
+        # Turn any special classes into the appropriate awkward form
+        collections = {
+            k
+            for k in field_names
+            if not _base_collection.match(k) and not _trailing_under.match(k)
+        }
+
+        #create idxs
+        idxs = {
+            k.split("/")[0]
+            for k in field_names
+            if _idxs.match(k)
+        }
+
+        for idx in idxs:
+            repl = idx.replace("#","idx")
+            # print(idx)
+            content = {
+                k[2*len(idx)+2:]:branch_forms.pop(k)
+                for k in field_names
+                if k.startswith(f"{idx}/{idx}.")
+            }
+            # print({k:v["offsets"] for k,v in content.items()})
+            output[repl] = zip_forms(sort_dict(content), repl, self.mixins_dictionary.get(repl, "NanoCollection"))
+
+        # Merge idxs of the same variable
+        idx_collection = {k.split("#")[0]+"idx" for k in idxs}
+        out = output.copy()
+        for idx_c in idx_collection:
+            content = {
+                k:output.pop(k)
+                for k in out
+                if k.startswith(idx_c)
+            }
+            output[idx_c] = zip_forms(sort_dict(content), idx_c, self.mixins_dictionary.get(idx_c, "NanoCollection"))
+
+
+
+        # Create other collections
+        for name in collections:
+            mixin = self.mixins_dictionary.get(name, "NanoCollection")
+            if name not in self._non_empty_composite_objects:
+                continue
+            content = {
+                k[(2*len(name) + 2) :]: branch_forms.pop(k)
+                for k in field_names
+                if k.startswith(f"{name}/{name}.")
+            }
+
+            #Change the name of some fields to facilitate vector and other type of object's construction
+            content = {(k.replace(k,self._replacement[k]) if k in self._replacement else k):v for k,v in content.items() }
+
+            output[name] = zip_forms(
+                sort_dict(content), name, mixin
+            )
+            output[name]["content"]["parameters"].update(
+                {
+                    "__doc__": branch_forms[name]["parameters"]["__doc__"],
+                    "collection_name": name,
+                }
+            )
+
+        # Unlisted Collections
+        unlisted = {k:v for k,v in branch_forms.items() if k not in output.keys() and not _idxs.match(k)}
+        for name, content in unlisted.items():
+            if content["class"] == 'ListOffsetArray':
+                if content["content"]["class"] == 'RecordArray':
+                    if len(content["content"]["fields"]) == 0: # Remove empty branches
+                        continue
+            elif content["class"] == 'RecordArray':
+                if len(content["contents"]) == 0 : # Remove empty branches
+                    continue
+                else:
+                    record_name = name.split("/")[0]
+                    contents = {
+                        k[2*len(record_name)+2:]:branch_forms.pop(k)
+                        for k in unlisted.keys()
+                        if k.startswith(record_name+"/")
+                    }
+                    output[record_name] = zip_forms(sort_dict(contents), record_name, self.mixins_dictionary.get(record_name, "NanoCollection"))
+            else: # Singletons
+                output[name] = content
+
+        #sort the output by key
+        output = sort_dict(output)
+
+        return output.keys(), output.values()
+
+    @classmethod
+    def behavior(cls):
+        """Behaviors necessary to implement this schema"""
+        from coffea.nanoevents.methods import base, fcc, vector
+
+        behavior = {}
+        behavior.update(base.behavior)
+        behavior.update(vector.behavior)
+        behavior.update(fcc.behavior)
+        return behavior
+
+class FCC():
+    def __init__(self, version="latest", zip_missing=False):
+        self._version = version
+        self._zip_missing = zip_missing
+
+    @classmethod
+    def get_schema(cls, version="latest", zip_missing=False):
+        if zip_missing:
+            if version == "latest":
+                return FCCSchema_zip_missing
+            else:
+                pass
+        else:
+            if version == "latest":
+                return FCCSchema
+            else:
+                pass
