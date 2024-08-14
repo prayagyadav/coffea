@@ -70,6 +70,10 @@ class MomentumCandidate(vector.LorentzVector):
             behavior=self.behavior,
         )
 
+    @property
+    def absolute_mass(self):
+        return numpy.sqrt(numpy.abs(self.mass2))
+
 behavior.update(awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior))
 
 MomentumCandidateArray.ProjectionClass2D = vector.TwoVectorArray
@@ -210,11 +214,6 @@ MCTruthParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 @awkward.mixin_class(behavior)
 class RecoParticle(MomentumCandidate, base.NanoCollection):
     """Reconstructed particles"""
-
-    # @awkward.mixin_class_method(vector.LorentzVector.mass)
-    @property
-    def absolute_mass(self):
-        return numpy.sqrt(numpy.abs(self.mass2))
 
     def match_collection(self, idx):
         """Returns matched particles"""
