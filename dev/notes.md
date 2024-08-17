@@ -32,35 +32,35 @@ B] Hash-Tagged: Contains two leaves- Index and Collection ID
   - AllMuon#0
   - EFlowNeutralHadron#0
   - EFlowNeutralHadron#1
-  - EFlowNeutralHadron#2 
-  - Particle#0 
-  - Particle#1 
-  - Photon#0 
+  - EFlowNeutralHadron#2
+  - Particle#0
+  - Particle#1
+  - Photon#0
   - ReconstructedParticles#0
-  - ReconstructedParticles#1 
-  - ReconstructedParticles#2 
-  - ReconstructedParticles#3 
-  - ReconstructedParticles#4 
-  - ReconstructedParticles#5 
+  - ReconstructedParticles#1
+  - ReconstructedParticles#2
+  - ReconstructedParticles#3
+  - ReconstructedParticles#4
+  - ReconstructedParticles#5
   - EFlowPhoton#0
-  - EFlowPhoton#1 
-  - EFlowPhoton#2 
+  - EFlowPhoton#1
+  - EFlowPhoton#2
   - MCRecoAssociations#0
-  - MCRecoAssociations#1 
-  - MissingET#0 
-  - MissingET#1 
-  - MissingET#2 
-  - MissingET#3 
-  - MissingET#4 
-  - MissingET#5 
+  - MCRecoAssociations#1
+  - MissingET#0
+  - MissingET#1
+  - MissingET#2
+  - MissingET#3
+  - MissingET#4
+  - MissingET#5
   - Jet#0
-  - Jet#1 
-  - Jet#2 
-  - Jet#3 
-  - Jet#4 
-  - Jet#5 
+  - Jet#1
+  - Jet#2
+  - Jet#3
+  - Jet#4
+  - Jet#5
   - EFlowTrack#0
-  - EFlowTrack#1 
+  - EFlowTrack#1
 C] Trailing Underscore: Donno the purpose
  - EFlowNeutralHadron_0 (Empty)
  - EFlowNeutralHadron_1 (Empty)
@@ -77,34 +77,34 @@ A] Generic fields (Nesting level 0)
 B] 3-vector fields
   a) position
     - position.x
-    - position.y 
+    - position.y
     - position.z
   b) directionError
-    - directionError.x 
-    - directionError.y 
-    - directionError.z 
+    - directionError.x
+    - directionError.y
+    - directionError.z
   c) vertex
     - vertex.x
     - vertex.y
     - vertex.z
   d) endpoint
-    - endpoint.x 
-    - endpoint.y 
-    - endpoint.z 
+    - endpoint.x
+    - endpoint.y
+    - endpoint.z
   e) referencePoint
-    - referencePoint.x 
-    - referencePoint.y 
-    - referencePoint.z 
+    - referencePoint.x
+    - referencePoint.y
+    - referencePoint.z
 C] 4-vector fields
   a) momentum
-    - momentum.x 
+    - momentum.x
     - momentum.y
     - momentum.z
     - mass or energy
   b) momentumAtEndpoint
-    - momentumAtEndpoint.x 
-    - momentumAtEndpoint.y 
-    - momentumAtEndpoint.z 
+    - momentumAtEndpoint.x
+    - momentumAtEndpoint.y
+    - momentumAtEndpoint.z
     - mass or energy
 D] Special Collections
 4 different classes defined in methods define these Special Collections.

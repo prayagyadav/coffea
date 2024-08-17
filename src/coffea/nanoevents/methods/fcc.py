@@ -1,8 +1,6 @@
 import awkward
-import dask_awkward
-from dask_awkward import dask_property
-import numpy
 import numba
+import numpy
 
 from coffea.nanoevents.methods import base, vector
 
@@ -19,6 +17,7 @@ behavior.update(base.behavior)
 def _mass2(t, x, y, z):
     return t * t - x * x - y * y - z * z
 
+
 class _FCCEvents(behavior["NanoEvents"]):
     def __repr__(self):
         # return f"<event {getattr(self,'run','??')}:\
@@ -29,16 +28,21 @@ class _FCCEvents(behavior["NanoEvents"]):
 
 behavior["NanoEvents"] = _FCCEvents
 
+
 def _set_repr_name(classname):
     def namefcn(self):
         return classname
+
     behavior[classname].__repr__ = namefcn
+
 
 @awkward.mixin_class(behavior)
 class MomentumCandidate(vector.LorentzVector):
     """A Lorentz vector with charge
 
-    This mixin class requires the parent class to provide items `px`, `py`, `pz`, `E`, and `charge`."""
+    This mixin class requires the parent class to provide items `px`, `py`, `pz`, `E`, and `charge`.
+    """
+
     @awkward.mixin_class_method(numpy.add, {"MomentumCandidate"})
     def add(self, other):
         """Add two candidates together elementwise using `px`, `py`, `pz`, `E`, and `charge` components"""
@@ -72,16 +76,21 @@ class MomentumCandidate(vector.LorentzVector):
     def absolute_mass(self):
         return numpy.sqrt(numpy.abs(self.mass2))
 
-behavior.update(awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior))
+
+behavior.update(
+    awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior)
+)
 
 MomentumCandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MomentumCandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MomentumCandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
 MomentumCandidateArray.MomentumClass = MomentumCandidateArray  # noqa: F821
 
+
 @awkward.mixin_class(behavior)
 class MCTruthParticle(MomentumCandidate, base.NanoCollection):
     """Generated Monte Carlo particles."""
+
     pass
     # @property
     # def matched_pfos(self, _dask_array_=None):
@@ -197,6 +206,7 @@ class MCTruthParticle(MomentumCandidate, base.NanoCollection):
     #         )
     #     raise RuntimeError("Not reachable in dask mode!")
 
+
 _set_repr_name("MCTruthParticle")
 behavior.update(
     awkward._util.copy_behaviors(MomentumCandidate, MCTruthParticle, behavior)
@@ -208,7 +218,6 @@ MCTruthParticleArray.ProjectionClass4D = MCTruthParticleArray  # noqa: F821
 MCTruthParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 
-
 @awkward.mixin_class(behavior)
 class RecoParticle(MomentumCandidate, base.NanoCollection):
     """Reconstructed particles"""
@@ -216,8 +225,6 @@ class RecoParticle(MomentumCandidate, base.NanoCollection):
     def match_collection(self, idx):
         """Returns matched particles"""
         return self[idx.index]
-
-
 
     # @property
     # def matched_gen(self, _dask_array_=None):
@@ -235,17 +242,14 @@ class RecoParticle(MomentumCandidate, base.NanoCollection):
     #         )
     #     raise RuntimeError("Not reachable in dask mode!")
 
+
 _set_repr_name("RecoParticle")
-behavior.update(
-    awkward._util.copy_behaviors(MomentumCandidate, RecoParticle, behavior)
-)
+behavior.update(awkward._util.copy_behaviors(MomentumCandidate, RecoParticle, behavior))
 
 RecoParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 RecoParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 RecoParticleArray.ProjectionClass4D = RecoParticleArray  # noqa: F821
 RecoParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
-
-
 
 
 # @awkward.mixin_class(behavior)
