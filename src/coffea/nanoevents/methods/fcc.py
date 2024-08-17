@@ -6,8 +6,6 @@ import numba
 
 from coffea.nanoevents.methods import base, vector
 
-# PION_MASS = 0.13957018  # GeV
-
 behavior = {}
 behavior.update(base.behavior)
 
@@ -76,10 +74,10 @@ class MomentumCandidate(vector.LorentzVector):
 
 behavior.update(awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior))
 
-MomentumCandidateArray.ProjectionClass2D = vector.TwoVectorArray
-MomentumCandidateArray.ProjectionClass3D = vector.ThreeVectorArray
-MomentumCandidateArray.ProjectionClass4D = vector.LorentzVectorArray
-MomentumCandidateArray.MomentumClass = MomentumCandidateArray
+MomentumCandidateArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+MomentumCandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+MomentumCandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
+MomentumCandidateArray.MomentumClass = MomentumCandidateArray  # noqa: F821
 
 @awkward.mixin_class(behavior)
 class MCTruthParticle(MomentumCandidate, base.NanoCollection):
