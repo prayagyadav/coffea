@@ -7,17 +7,6 @@ from coffea.nanoevents.methods import base, vector
 behavior = {}
 behavior.update(base.behavior)
 
-
-@numba.vectorize(
-    [
-        numba.float32(numba.float32, numba.float32, numba.float32, numba.float32),
-        numba.float64(numba.float64, numba.float64, numba.float64, numba.float64),
-    ]
-)
-def _mass2(t, x, y, z):
-    return t * t - x * x - y * y - z * z
-
-
 class _FCCEvents(behavior["NanoEvents"]):
     def __repr__(self):
         # return f"<event {getattr(self,'run','??')}:\
