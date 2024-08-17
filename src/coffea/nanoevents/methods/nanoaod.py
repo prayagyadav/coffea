@@ -241,7 +241,7 @@ class Electron(candidate.PtEtaPhiMCandidate, base.NanoCollection, base.Systemati
     @dask_property
     def matched_gen(self):
         return self._events().GenPart._apply_global_index(self.genPartIdxG)
-
+from coffea.nanoevents.methods import base, candidate, vector
     @matched_gen.dask
     def matched_gen(self, dask_array):
         return dask_array._events().GenPart._apply_global_index(dask_array.genPartIdxG)

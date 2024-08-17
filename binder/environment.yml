@@ -10,3 +10,5 @@ dependencies:
   - pip:
     - '--editable ./coffea'
     - distributed
+    - vector
+    - git-python
