@@ -1,7 +1,6 @@
 import copy
 import re
 
-
 from coffea.nanoevents.methods import vector
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
 
