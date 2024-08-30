@@ -1,4 +1,5 @@
 import awkward
+from dask_awkward.lib.core import dask_property
 import numba
 import numpy
 
@@ -215,22 +216,16 @@ class RecoParticle(MomentumCandidate, base.NanoCollection):
         """Returns matched particles"""
         return self[idx.index]
 
-    # @property
-    # def matched_gen(self, _dask_array_=None):
-    #     """Returns an array of matched generator particle objects for each reconstructed particle."""
-    #     if _dask_array_ is not None:
-    #         collection_name = self.layout.purelist_parameter("collection_name")
-    #         original_from = self.behavior["__original_array__"]()[collection_name]
-    #         original = self.behavior["__original_array__"]().MCParticlesSkimmed
-    #         return original._apply_global_mapping(
-    #             _dask_array_,
-    #             original_from,
-    #             self.behavior["__original_array__"]().RecoMCTruthLink.Greco_index,
-    #             self.behavior["__original_array__"]().RecoMCTruthLink.Gmc_index,
-    #             _dask_array_=original,
-    #         )
-    #     raise RuntimeError("Not reachable in dask mode!")
+    @dask_property
+    def matched_gen(self):
+        index = self._events().MCRecoAssociations.reco_mc_index[:,:,1]
+        return self._events().Particle[index]
 
+
+    @matched_gen.dask
+    def matched_gen(self, dask_array):
+        index = dask_array._events().MCRecoAssociations.reco_mc_index[:,:,1]
+        return dask_array._events().Particle[index]
 
 _set_repr_name("RecoParticle")
 behavior.update(awkward._util.copy_behaviors(MomentumCandidate, RecoParticle, behavior))
@@ -338,39 +333,42 @@ RecoParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 #         return PION_MASS * awkward.ones_like(self["omega"])
 
 
-# @awkward.mixin_class(behavior)
-# class ParticleLink(base.NanoCollection):
-#     """MCRecoParticleAssociation objects."""
+@awkward.mixin_class(behavior)
+class ParticleLink(base.NanoCollection):
+    """MCRecoParticleAssociation objects."""
 
-#     @property
-#     def reco_mc_index(self):
-#         """
-#         returns an array of indices mapping to generator particles for each reconstructed particle
-#         """
-#         arr_reco = self.reco_index
-#         arr_mc = self.mc_index
+    @property
+    def reco_mc_index(self):
+        """
+        Returns an array of indices mapping to generator particles for each reconstructed particle
+        """
+        arr_reco = self.reco.index[:,:,numpy.newaxis]
+        arr_mc = self.mc.index[:,:,numpy.newaxis]
 
-#         # this is just to shape the index array properly
-#         sorted_reco = arr_reco[awkward.argsort(arr_reco)]
-#         sorted_mc = arr_mc[awkward.argsort(arr_reco)]
-#         proper_indices = awkward.unflatten(
-#             sorted_mc, awkward.flatten(awkward.run_lengths(sorted_reco), axis=1), axis=1
-#         )
+        joined_indices = awkward.concatenate((arr_reco,arr_mc), axis=2)
 
-#         return proper_indices
+        return joined_indices
 
-#     @property
-#     def debug_index_shaping(self):
-#         """
-#         function acting as a canned reproducer of the source of the problem in the above function
-#         **just for debugging purposes**
-#         """
-#         arr_reco = self.reco_index
-#         arr_mc = self.mc_index
+    @dask_property
+    def reco_mc(self):
+        """
+        Returns an array of Records mapping to generator particle record for each reconstructed particle record
+        """
+        reco_index = self.reco.index
+        mc_index = self.mc.index
+        r = self._events().ReconstructedParticles[reco_index][:,:,numpy.newaxis]
+        m = self._events().Particle[mc_index][:,:,numpy.newaxis]
 
-#         sorted_reco = arr_reco[awkward.argsort(arr_reco)]
-#         sorted_mc = arr_mc[awkward.argsort(arr_reco)]
+        return awkward.concatenate((r,m), axis=2)
 
-#         print(sorted_reco, sorted_mc)
+    @reco_mc.dask
+    def reco_mc(self, dask_array):
+        """
+        Returns an array of Records mapping to generator particle record for each reconstructed particle record
+        """
+        reco_index = dask_array.reco.index
+        mc_index = dask_array.mc.index
+        r = dask_array._events().ReconstructedParticles[reco_index][:,:,numpy.newaxis]
+        m = dask_array._events().Particle[mc_index][:,:,numpy.newaxis]
 
-#         return sorted_reco  # only return one due to type constraints
+        return awkward.concatenate((r,m), axis=2)
