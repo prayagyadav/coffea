@@ -2,6 +2,8 @@ name: CI/CD
 
 on:
   push:
+    paths-ignore:
+      - 'dev/*'
     branches:
       - master
       - backports-v0.7.x
