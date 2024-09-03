@@ -1,5 +1,6 @@
 import awkward
-from dask_awkward.lib.core import dask_property
+import dask_awkward
+from dask_awkward.lib.core import dask_property, dask_method
 import numba
 import numpy
 
@@ -25,6 +26,56 @@ def _set_repr_name(classname):
 
     behavior[classname].__repr__ = namefcn
 
+
+def map_index_to_array(array, index, axis=1):
+    '''
+    DESCRIPTION: Creates a slice of input array according to the input index.
+    INPUTS: array (Singly nested)
+            index (Singly or Doubly nested)
+            axis (By default 1, use axis = 2 if index is doubly nested )
+    EXAMPLE:
+            a = awkward.Array([
+                [44,33,23,22],
+                [932,24,456,78],
+                [22,345,78,90,98,24]
+            ])
+
+            a_index = awkward.Array([
+                [0,1,2],
+                [0,1],
+                []
+            ])
+
+            a2_index = awkward.Array([
+                [[0],[0,1],[2]],
+                [[0,1]],
+                []
+            ])
+            >> map_index_to_array(a, a_index)
+                [[44, 33, 23],
+                 [932, 24],
+                 []]
+                ---------------------
+                type: 3 * var * int64
+            >> map_index_to_array(a, a2_index, axis=2)
+                [[[44], [44, 33], [23]],
+                 [[932, 24]],
+                 []]
+                ---------------------------
+                type: 3 * var * var * int64
+
+    '''
+    if axis==1:
+        return array[index]
+    elif axis==2:
+        axis2_counts_array = awkward.num(index, axis=axis)
+        flat_axis2_counts_array = awkward.flatten(axis2_counts_array, axis=1)
+        flat_index = awkward.flatten(index, axis=axis)
+        trimmed_flat_array = array[flat_index]
+        trimmed_array = awkward.unflatten(trimmed_flat_array, flat_axis2_counts_array, axis=1)
+        return trimmed_array
+    else:
+        raise AttributeError('Only axis = 1 or axis = 2 supported at the moment.')
 
 @awkward.mixin_class(behavior)
 class MomentumCandidate(vector.LorentzVector):
@@ -81,7 +132,66 @@ MomentumCandidateArray.MomentumClass = MomentumCandidateArray  # noqa: F821
 class MCTruthParticle(MomentumCandidate, base.NanoCollection):
     """Generated Monte Carlo particles."""
 
-    pass
+
+    @numba.njit
+    def index_range_numba_wrap(self, begin_end, builder):
+        for ev in begin_end:
+            builder.begin_list()
+            for j in ev:
+                builder.begin_list()
+                for k in range(j[0],j[1]):
+                    builder.integer(k)
+                builder.end_list()
+            builder.end_list()
+        return builder
+
+    def index_range(self, begin, end):
+        begin_end = awkward.concatenate((begin[:,:,numpy.newaxis],end[:,:,numpy.newaxis]),axis=2)
+        if awkward.backend(begin) == "typetracer" or awkward.backend(end) == "typetracer":
+            # here we fake the output of numba wrapper function since
+            # operating on length-zero data returns the wrong layout!
+            awkward.typetracer.length_zero_if_typetracer(begin_end) # force touching of the necessary data
+            return awkward.Array(awkward.Array([]).layout.to_typetracer(forget_length=True))
+        return self.index_range_numba_wrap(begin_end, awkward.ArrayBuilder()).snapshot()
+
+    #Daughters
+    @dask_property
+    def get_daughters_index(self):
+        ranges = self.index_range(self.daughters.begin, self.daughters.end)
+        return awkward.values_astype(map_index_to_array(self._events().Particleidx1.index, ranges, axis=2), "int64")
+
+    @get_daughters_index.dask
+    def get_daughters_index(self, dask_array):
+        ranges = dask_awkward.map_partitions(self.index_range, dask_array.daughters.begin, dask_array.daughters.end)
+        return awkward.values_astype(map_index_to_array(dask_array._events().Particleidx1.index, ranges, axis=2), "int64")
+
+    @dask_property
+    def get_daughters(self):
+        return map_index_to_array(self, self.get_daughters_index, axis=2)
+
+    @get_daughters.dask
+    def get_daughters(self, dask_array):
+        return map_index_to_array(dask_array, dask_array.get_daughters_index, axis=2)
+
+    #Parents
+    @dask_property
+    def get_parents_index(self):
+        ranges = self.index_range(self.parents.begin, self.parents.end)
+        return awkward.values_astype(map_index_to_array(self._events().Particleidx0.index, ranges, axis=2), "int64")
+
+    @get_parents_index.dask
+    def get_parents_index(self, dask_array):
+        ranges = dask_awkward.map_partitions(self.index_range, dask_array.parents.begin, dask_array.parents.end)
+        return awkward.values_astype(map_index_to_array(dask_array._events().Particleidx0.index, ranges, axis=2), "int64")
+
+    @dask_property
+    def get_parents(self):
+        return map_index_to_array(self, self.get_parents_index, axis=2)
+
+    @get_parents.dask
+    def get_parents(self, dask_array):
+        return map_index_to_array(dask_array, dask_array.get_parents_index, axis=2)
+
     # @property
     # def matched_pfos(self, _dask_array_=None):
     #     """Returns an array of matched reconstructed particle objects for each generator particle."""
@@ -218,14 +328,16 @@ class RecoParticle(MomentumCandidate, base.NanoCollection):
 
     @dask_property
     def matched_gen(self):
+        sel = awkward.broadcast_arrays(True, self)[0]
         index = self._events().MCRecoAssociations.reco_mc_index[:,:,1]
-        return self._events().Particle[index]
+        return self._events().Particle[index[sel]]
 
 
     @matched_gen.dask
     def matched_gen(self, dask_array):
+        sel = awkward.broadcast_arrays(True, dask_array)[0]
         index = dask_array._events().MCRecoAssociations.reco_mc_index[:,:,1]
-        return dask_array._events().Particle[index]
+        return dask_array._events().Particle[index[sel]]
 
 _set_repr_name("RecoParticle")
 behavior.update(awkward._util.copy_behaviors(MomentumCandidate, RecoParticle, behavior))
