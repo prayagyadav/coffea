@@ -52,6 +52,7 @@ repos:
   hooks:
   - id: ruff
     args: [--fix, --show-fixes]
+    exclude: dev/
 
 
 - repo: https://github.com/codespell-project/codespell
@@ -59,3 +60,4 @@ repos:
   hooks:
   - id: codespell
     args: ["--skip=*.ipynb","-L hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]
+    exclude: dev/
