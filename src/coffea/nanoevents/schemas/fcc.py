@@ -44,7 +44,7 @@ class FCCSchema(BaseSchema):
         "Particle": "MCTruthParticle",
         "ReconstructedParticles": "RecoParticle",
         "MissingET": "RecoParticle",
-        "MCRecoAssociations":"ParticleLink"
+        "MCRecoAssociations": "ParticleLink",
     }
 
     _momentum_fields_e = {
@@ -114,9 +114,15 @@ class FCCSchema(BaseSchema):
         # The Special MCRecoAssociationsidx indexes should be treated differently
         # Prepare them to later join the MCRecoAssociations collection
         # Also see : https://github.com/HEP-FCC/FCCAnalyses/tree/master/examples/basics#association-between-recoparticles-and-montecarloparticles
-        if ('MCRecoAssociationsidx0' in output.keys()) and ('MCRecoAssociationsidx1' in output.keys()) :
-            branch_forms['MCRecoAssociations/MCRecoAssociations.reco'] = output.pop('MCRecoAssociationsidx0')
-            branch_forms['MCRecoAssociations/MCRecoAssociations.mc'] = output.pop('MCRecoAssociationsidx1')
+        if ("MCRecoAssociationsidx0" in output.keys()) and (
+            "MCRecoAssociationsidx1" in output.keys()
+        ):
+            branch_forms["MCRecoAssociations/MCRecoAssociations.reco"] = output.pop(
+                "MCRecoAssociationsidx0"
+            )
+            branch_forms["MCRecoAssociations/MCRecoAssociations.mc"] = output.pop(
+                "MCRecoAssociationsidx1"
+            )
 
         return output, branch_forms
 

@@ -1,0 +1,23 @@
+#!/usr/bin/bash
+
+INFILE=$1
+
+IFS='.'
+read -ra arr <<<"$INFILE"
+
+NAME=${arr[0]}
+
+python3 scripts/split_ipynb.py -f "${NAME}.ipynb"
+sleep 1
+jupyter nbconvert --to latex "${NAME}_export/*"
+sleep 1
+python3 scripts/build_main_tex.py -i "${NAME}_export/"
+sleep 1
+cd "${NAME}_export"
+lualatex -synctex=1 --shell-escape -interaction=nonstopmode "${NAME}_main.tex"
+sleep 0.5
+xdg-open "${NAME}_main.pdf"
+sleep 0.5
+cd ..
+
+echo "Done"

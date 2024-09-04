@@ -1,13 +1,14 @@
 import awkward
 import dask_awkward
-from dask_awkward.lib.core import dask_property, dask_method
 import numba
 import numpy
+from dask_awkward.lib.core import dask_property
 
 from coffea.nanoevents.methods import base, vector
 
 behavior = {}
 behavior.update(base.behavior)
+
 
 class _FCCEvents(behavior["NanoEvents"]):
     def __repr__(self):
@@ -28,7 +29,7 @@ def _set_repr_name(classname):
 
 
 def map_index_to_array(array, index, axis=1):
-    '''
+    """
     DESCRIPTION: Creates a slice of input array according to the input index.
     INPUTS: array (Singly nested)
             index (Singly or Doubly nested)
@@ -64,18 +65,21 @@ def map_index_to_array(array, index, axis=1):
                 ---------------------------
                 type: 3 * var * var * int64
 
-    '''
-    if axis==1:
+    """
+    if axis == 1:
         return array[index]
-    elif axis==2:
+    elif axis == 2:
         axis2_counts_array = awkward.num(index, axis=axis)
         flat_axis2_counts_array = awkward.flatten(axis2_counts_array, axis=1)
         flat_index = awkward.flatten(index, axis=axis)
         trimmed_flat_array = array[flat_index]
-        trimmed_array = awkward.unflatten(trimmed_flat_array, flat_axis2_counts_array, axis=1)
+        trimmed_array = awkward.unflatten(
+            trimmed_flat_array, flat_axis2_counts_array, axis=1
+        )
         return trimmed_array
     else:
-        raise AttributeError('Only axis = 1 or axis = 2 supported at the moment.')
+        raise AttributeError("Only axis = 1 or axis = 2 supported at the moment.")
+
 
 @numba.njit
 def index_range_numba_wrap(begin_end, builder):
@@ -83,22 +87,32 @@ def index_range_numba_wrap(begin_end, builder):
         builder.begin_list()
         for j in ev:
             builder.begin_list()
-            for k in range(j[0],j[1]):
+            for k in range(j[0], j[1]):
                 builder.integer(k)
             builder.end_list()
         builder.end_list()
     return builder
 
+
 def index_range(begin, end):
-    begin_end = awkward.concatenate((begin[:,:,numpy.newaxis],end[:,:,numpy.newaxis]),axis=2)
+    begin_end = awkward.concatenate(
+        (begin[:, :, numpy.newaxis], end[:, :, numpy.newaxis]), axis=2
+    )
     if awkward.backend(begin) == "typetracer" or awkward.backend(end) == "typetracer":
         # here we fake the output of numba wrapper function since
         # operating on length-zero data returns the wrong layout!
         # We need the axis 2, therefore, we should return the typetracer layout of [[[]]]
-        awkward.typetracer.length_zero_if_typetracer(begin) # force touching of the necessary data
-        awkward.typetracer.length_zero_if_typetracer(end) # force touching of the necessary data
-        return awkward.Array(awkward.Array([[[]]]).layout.to_typetracer(forget_length=True))
+        awkward.typetracer.length_zero_if_typetracer(
+            begin
+        )  # force touching of the necessary data
+        awkward.typetracer.length_zero_if_typetracer(
+            end
+        )  # force touching of the necessary data
+        return awkward.Array(
+            awkward.Array([[[]]]).layout.to_typetracer(forget_length=True)
+        )
     return index_range_numba_wrap(begin_end, awkward.ArrayBuilder()).snapshot()
+
 
 @awkward.mixin_class(behavior)
 class MomentumCandidate(vector.LorentzVector):
@@ -150,20 +164,28 @@ MomentumCandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MomentumCandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
 MomentumCandidateArray.MomentumClass = MomentumCandidateArray  # noqa: F821
 
+
 @awkward.mixin_class(behavior)
 class MCTruthParticle(MomentumCandidate, base.NanoCollection):
     """Generated Monte Carlo particles."""
 
-    #Daughters
+    # Daughters
     @dask_property
     def get_daughters_index(self):
         ranges = index_range(self.daughters.begin, self.daughters.end)
-        return awkward.values_astype(map_index_to_array(self._events().Particleidx1.index, ranges, axis=2), "int64")
+        return awkward.values_astype(
+            map_index_to_array(self._events().Particleidx1.index, ranges, axis=2),
+            "int64",
+        )
 
     @get_daughters_index.dask
     def get_daughters_index(self, dask_array):
-        ranges = dask_awkward.map_partitions(index_range, dask_array.daughters.begin, dask_array.daughters.end)
-        daughters = dask_awkward.map_partitions(map_index_to_array, dask_array._events().Particleidx1.index, ranges, axis=2)
+        ranges = dask_awkward.map_partitions(
+            index_range, dask_array.daughters.begin, dask_array.daughters.end
+        )
+        daughters = dask_awkward.map_partitions(
+            map_index_to_array, dask_array._events().Particleidx1.index, ranges, axis=2
+        )
         return awkward.values_astype(daughters, "int32")
 
     @dask_property
@@ -174,16 +196,23 @@ class MCTruthParticle(MomentumCandidate, base.NanoCollection):
     def get_daughters(self, dask_array):
         return map_index_to_array(dask_array, dask_array.get_daughters_index, axis=2)
 
-    #Parents
+    # Parents
     @dask_property
     def get_parents_index(self):
         ranges = index_range(self.parents.begin, self.parents.end)
-        return awkward.values_astype(map_index_to_array(self._events().Particleidx0.index, ranges, axis=2), "int64")
+        return awkward.values_astype(
+            map_index_to_array(self._events().Particleidx0.index, ranges, axis=2),
+            "int64",
+        )
 
     @get_parents_index.dask
     def get_parents_index(self, dask_array):
-        ranges = dask_awkward.map_partitions(index_range, dask_array.parents.begin, dask_array.parents.end)
-        daughters = dask_awkward.map_partitions(map_index_to_array, dask_array._events().Particleidx0.index, ranges, axis=2)
+        ranges = dask_awkward.map_partitions(
+            index_range, dask_array.parents.begin, dask_array.parents.end
+        )
+        daughters = dask_awkward.map_partitions(
+            map_index_to_array, dask_array._events().Particleidx0.index, ranges, axis=2
+        )
         return awkward.values_astype(daughters, "int32")
 
     @dask_property
@@ -193,6 +222,7 @@ class MCTruthParticle(MomentumCandidate, base.NanoCollection):
     @get_parents.dask
     def get_parents(self, dask_array):
         return map_index_to_array(dask_array, dask_array.get_parents_index, axis=2)
+
 
 _set_repr_name("MCTruthParticle")
 behavior.update(
@@ -216,15 +246,15 @@ class RecoParticle(MomentumCandidate, base.NanoCollection):
     @dask_property
     def matched_gen(self):
         sel = awkward.broadcast_arrays(True, self)[0]
-        index = self._events().MCRecoAssociations.reco_mc_index[:,:,1]
+        index = self._events().MCRecoAssociations.reco_mc_index[:, :, 1]
         return self._events().Particle[index[sel]]
-
 
     @matched_gen.dask
     def matched_gen(self, dask_array):
         sel = awkward.broadcast_arrays(True, dask_array)[0]
-        index = dask_array._events().MCRecoAssociations.reco_mc_index[:,:,1]
+        index = dask_array._events().MCRecoAssociations.reco_mc_index[:, :, 1]
         return dask_array._events().Particle[index[sel]]
+
 
 _set_repr_name("RecoParticle")
 behavior.update(awkward._util.copy_behaviors(MomentumCandidate, RecoParticle, behavior))
@@ -341,10 +371,10 @@ class ParticleLink(base.NanoCollection):
         """
         Returns an array of indices mapping to generator particles for each reconstructed particle
         """
-        arr_reco = self.reco.index[:,:,numpy.newaxis]
-        arr_mc = self.mc.index[:,:,numpy.newaxis]
+        arr_reco = self.reco.index[:, :, numpy.newaxis]
+        arr_mc = self.mc.index[:, :, numpy.newaxis]
 
-        joined_indices = awkward.concatenate((arr_reco,arr_mc), axis=2)
+        joined_indices = awkward.concatenate((arr_reco, arr_mc), axis=2)
 
         return joined_indices
 
@@ -355,10 +385,10 @@ class ParticleLink(base.NanoCollection):
         """
         reco_index = self.reco.index
         mc_index = self.mc.index
-        r = self._events().ReconstructedParticles[reco_index][:,:,numpy.newaxis]
-        m = self._events().Particle[mc_index][:,:,numpy.newaxis]
+        r = self._events().ReconstructedParticles[reco_index][:, :, numpy.newaxis]
+        m = self._events().Particle[mc_index][:, :, numpy.newaxis]
 
-        return awkward.concatenate((r,m), axis=2)
+        return awkward.concatenate((r, m), axis=2)
 
     @reco_mc.dask
     def reco_mc(self, dask_array):
@@ -367,7 +397,7 @@ class ParticleLink(base.NanoCollection):
         """
         reco_index = dask_array.reco.index
         mc_index = dask_array.mc.index
-        r = dask_array._events().ReconstructedParticles[reco_index][:,:,numpy.newaxis]
-        m = dask_array._events().Particle[mc_index][:,:,numpy.newaxis]
+        r = dask_array._events().ReconstructedParticles[reco_index][:, :, numpy.newaxis]
+        m = dask_array._events().Particle[mc_index][:, :, numpy.newaxis]
 
-        return awkward.concatenate((r,m), axis=2)
+        return awkward.concatenate((r, m), axis=2)
