@@ -1,6 +1,7 @@
 from .base import BaseSchema
 from .delphes import DelphesSchema
 from .nanoaod import NanoAODSchema, PFNanoAODSchema, ScoutingNanoAODSchema
+from .fcc import FCC, FCCSchema
 from .pdune import PDUNESchema
 from .physlite import PHYSLITESchema
 from .treemaker import TreeMakerSchema
@@ -14,4 +15,6 @@ __all__ = [
     "DelphesSchema",
     "PDUNESchema",
     "ScoutingNanoAODSchema",
+    "FCC",
+    "FCCSchema"
 ]
