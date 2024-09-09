@@ -17,7 +17,6 @@ class _FCCEvents(behavior["NanoEvents"]):
         #         {getattr(self,'event','??')}>"
         return "FCC Events"
 
-
 behavior["NanoEvents"] = _FCCEvents
 
 
@@ -26,7 +25,6 @@ def _set_repr_name(classname):
         return classname
 
     behavior[classname].__repr__ = namefcn
-
 
 def map_index_to_array(array, index, axis=1):
     """
@@ -80,7 +78,6 @@ def map_index_to_array(array, index, axis=1):
     else:
         raise AttributeError("Only axis = 1 or axis = 2 supported at the moment.")
 
-
 @numba.njit
 def index_range_numba_wrap(begin_end, builder):
     for ev in begin_end:
@@ -92,7 +89,6 @@ def index_range_numba_wrap(begin_end, builder):
             builder.end_list()
         builder.end_list()
     return builder
-
 
 def index_range(begin, end):
     begin_end = awkward.concatenate(
@@ -154,7 +150,6 @@ class MomentumCandidate(vector.LorentzVector):
     def absolute_mass(self):
         return numpy.sqrt(numpy.abs(self.mass2))
 
-
 behavior.update(
     awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior)
 )
@@ -166,7 +161,7 @@ MomentumCandidateArray.MomentumClass = MomentumCandidateArray  # noqa: F821
 
 
 @awkward.mixin_class(behavior)
-class MCTruthParticle(MomentumCandidate, base.NanoCollection):
+class MCParticle(MomentumCandidate, base.NanoCollection):
     """Generated Monte Carlo particles."""
 
     # Daughters
@@ -223,21 +218,20 @@ class MCTruthParticle(MomentumCandidate, base.NanoCollection):
     def get_parents(self, dask_array):
         return map_index_to_array(dask_array, dask_array.get_parents_index, axis=2)
 
-
-_set_repr_name("MCTruthParticle")
+_set_repr_name("MCParticle")
 behavior.update(
-    awkward._util.copy_behaviors(MomentumCandidate, MCTruthParticle, behavior)
+    awkward._util.copy_behaviors(MomentumCandidate, MCParticle, behavior)
 )
 
-MCTruthParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
-MCTruthParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
-MCTruthParticleArray.ProjectionClass4D = MCTruthParticleArray  # noqa: F821
-MCTruthParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+MCParticleArray.ProjectionClass4D = MCParticleArray  # noqa: F821
+MCParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 
 @awkward.mixin_class(behavior)
-class RecoParticle(MomentumCandidate, base.NanoCollection):
-    """Reconstructed particles"""
+class ReconstructedParticle(MomentumCandidate, base.NanoCollection):
+    """Reconstructed particle"""
 
     def match_collection(self, idx):
         """Returns matched particles"""
@@ -255,115 +249,17 @@ class RecoParticle(MomentumCandidate, base.NanoCollection):
         index = dask_array._events().MCRecoAssociations.reco_mc_index[:, :, 1]
         return dask_array._events().Particle[index[sel]]
 
+_set_repr_name("ReconstructedParticle")
+behavior.update(awkward._util.copy_behaviors(MomentumCandidate, ReconstructedParticle, behavior))
 
-_set_repr_name("RecoParticle")
-behavior.update(awkward._util.copy_behaviors(MomentumCandidate, RecoParticle, behavior))
-
-RecoParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
-RecoParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
-RecoParticleArray.ProjectionClass4D = RecoParticleArray  # noqa: F821
-RecoParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
-
-
-# @awkward.mixin_class(behavior)
-# class Cluster(vector.PtThetaPhiELorentzVector, base.NanoCollection):
-#     """Clusters."""
-
-#     @property
-#     def matched_gen(self, _dask_array_=None):
-#         """Returns an array of matched generator particle objects for each cluster."""
-#         if _dask_array_ is not None:
-#             collection_name = self.layout.purelist_parameter("collection_name")
-#             original_from = self.behavior["__original_array__"]()[collection_name]
-#             original = self.behavior["__original_array__"]().MCParticlesSkimmed
-#             return original._apply_global_mapping(
-#                 _dask_array_,
-#                 original_from,
-#                 self.behavior["__original_array__"]().ClusterMCTruthLink.Gcluster_index,
-#                 self.behavior["__original_array__"]().ClusterMCTruthLink.Gmc_index,
-#                 _dask_array_=original,
-#             )
-#         raise RuntimeError("Not reachable in dask mode!")
-
-
-# @awkward.mixin_class(behavior)
-# class Track(vector.LorentzVector, base.NanoEvents, base.NanoCollection):
-#     """Tracks."""
-
-#     @property
-#     def matched_gen(self, _dask_array_=None):
-#         """Returns an array of matched generator particle objects for each track."""
-#         if _dask_array_ is not None:
-#             collection_name = self.layout.purelist_parameter("collection_name")
-#             original_from = self.behavior["__original_array__"]()[collection_name]
-#             original = self.behavior["__original_array__"]().MCParticlesSkimmed
-#             return original._apply_global_mapping(
-#                 _dask_array_,
-#                 original_from,
-#                 self.behavior[
-#                     "__original_array__"
-#                 ]().MarlinTrkTracksMCTruthLink.Gtrk_index,
-#                 self.behavior[
-#                     "__original_array__"
-#                 ]().MarlinTrkTracksMCTruthLink.Gmc_index,
-#                 _dask_array_=original,
-#             )
-#         raise RuntimeError("Not reachable in dask mode!")
-
-#     @property
-#     def pt(self):
-#         r"""transverse momentum
-#         mag :: magnetic field strength in T
-
-#         source: https://github.com/PandoraPFA/MarlinPandora/blob/master/src/TrackCreator.cc#LL521
-#         """
-#         metadata = self.behavior["__original_array__"]().get_metadata()
-
-#         if metadata is None or "b_field" not in metadata.keys():
-#             print(
-#                 "Track momentum requires value of magnetic field. \n"
-#                 "Please have 'metadata' argument in from_root function have"
-#                 "key 'b_field' with the value of magnetic field."
-#             )
-#             raise ValueError(
-#                 "Track momentum requires value of magnetic field. \n"
-#                 "Please have 'metadata' argument in from_root function have"
-#                 "key 'b_field' with the value of magnetic field."
-#             )
-#         else:
-#             b_field = metadata["b_field"]
-#             return b_field * 2.99792e-4 / numpy.abs(self["omega"])
-
-#     @property
-#     def phi(self):
-#         r"""phi of momentum"""
-#         return self["phi"]
-
-#     @property
-#     def x(self):
-#         r"""x momentum"""
-#         return numpy.cos(self["phi"]) * self.pt
-
-#     @property
-#     def y(self):
-#         r"""y momentum"""
-#         return numpy.sin(self["phi"]) * self.pt
-
-#     @property
-#     def z(self):
-#         r"""z momentum"""
-#         return self["tanLambda"] * self.pt
-
-#     @property
-#     def mass(self):
-#         r"""mass of the track - assumed to be the mass of a pion
-#         source: https://github.com/iLCSoft/MarlinTrk/blob/c53d868979ef6db26077746ce264633819ffcf4f/src/MarlinAidaTTTrack.cc#LL54C3-L58C3
-#         """
-#         return PION_MASS * awkward.ones_like(self["omega"])
+ReconstructedParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+ReconstructedParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+ReconstructedParticleArray.ProjectionClass4D = ReconstructedParticleArray  # noqa: F821
+ReconstructedParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 
 @awkward.mixin_class(behavior)
-class ParticleLink(base.NanoCollection):
+class RecoMCParticleLink(base.NanoCollection):
     """MCRecoParticleAssociation objects."""
 
     @property
@@ -401,3 +297,58 @@ class ParticleLink(base.NanoCollection):
         m = dask_array._events().Particle[mc_index][:, :, numpy.newaxis]
 
         return awkward.concatenate((r, m), axis=2)
+
+_set_repr_name("RecoMCParticleLink")
+
+RecoMCParticleLinkArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+RecoMCParticleLinkArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+RecoMCParticleLinkArray.ProjectionClass4D = RecoMCParticleLinkArray  # noqa: F821
+RecoMCParticleLinkArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+
+@awkward.mixin_class(behavior)
+class ParticleID(base.NanoCollection):
+    """ParticleID collection"""
+
+_set_repr_name("ParticleID")
+
+ParticleIDArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+ParticleIDArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+ParticleIDArray.ProjectionClass4D = ParticleIDArray  # noqa: F821
+ParticleIDArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+
+@awkward.mixin_class(behavior)
+class ObjectID(base.NanoCollection):
+    """Generic Object ID storage, pointing to another collection"""
+
+_set_repr_name("ObjectID")
+
+ObjectIDArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+ObjectIDArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+ObjectIDArray.ProjectionClass4D = ObjectIDArray  # noqa: F821
+ObjectIDArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+
+@awkward.mixin_class(behavior)
+class Cluster(base.NanoCollection):
+    """Clusters"""
+
+_set_repr_name("Cluster")
+
+ClusterArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+ClusterArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+ClusterArray.ProjectionClass4D = ClusterArray  # noqa: F821
+ClusterArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+
+
+@awkward.mixin_class(behavior)
+class Track(base.NanoCollection):
+    """Tracks"""
+
+_set_repr_name("Track")
+
+TrackArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+TrackArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+TrackArray.ProjectionClass4D = TrackArray  # noqa: F821
+TrackArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821

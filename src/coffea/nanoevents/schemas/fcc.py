@@ -40,11 +40,20 @@ class FCCSchema(BaseSchema):
     """
 
     mixins_dictionary = {
-        "Jet": "RecoParticle",
-        "Particle": "MCTruthParticle",
-        "ReconstructedParticles": "RecoParticle",
-        "MissingET": "RecoParticle",
-        "MCRecoAssociations": "ParticleLink",
+        "Electron": "ReconstructedParticle",
+        "Muon": "ReconstructedParticle",
+        "AllMuon": "ReconstructedParticle",
+        "EFlowNeutralHadron": "Cluster",
+        "Particle": "MCParticle",
+        "Photon": "ReconstructedParticle",
+        "ReconstructedParticles": "ReconstructedParticle",
+        "EFlowPhoton": "Cluster",
+        "MCRecoAssociations": "RecoMCParticleLink",
+        "MissingET": "ReconstructedParticle",
+        "ParticleIDs": "ParticleID",
+        "Jet": "ReconstructedParticle",
+        "EFlowTrack": "Track",
+        "*idx": "ObjectID"
     }
 
     _momentum_fields_e = {
@@ -53,7 +62,9 @@ class FCCSchema(BaseSchema):
         "momentum.y": "py",
         "momentum.z": "pz",
     }
+
     _replacement = {**_momentum_fields_e}
+
     _threevec_fields = {
         "position": ["position.x", "position.y", "position.z"],
         "directionError": ["directionError.x", "directionError.y", "directionError.z"],
@@ -67,17 +78,6 @@ class FCCSchema(BaseSchema):
         ],
         "spin": ["spin.x", "spin.y", "spin.z"],
     }
-    _non_empty_composite_objects = [
-        "EFlowNeutralHadron",
-        "Particle",
-        "ReconstructedParticles",
-        "EFlowPhoton",
-        "MCRecoAssociations",
-        "MissingET",
-        "ParticleIDs",
-        "Jet",
-        "EFlowTrack",
-    ]
 
     def __init__(self, base_form, version="latest"):
         super().__init__(base_form)
@@ -108,7 +108,12 @@ class FCCSchema(BaseSchema):
             output[repl] = zip_forms(
                 sort_dict(idx_content),
                 idx,
-                self.mixins_dictionary.get(idx, "NanoCollection"),
+                self.mixins_dictionary.get("*idx","NanoCollection"),
+            )
+            output[repl]["content"]["parameters"].update(
+                {
+                    "collection_name": repl,
+                }
             )
 
         # The Special MCRecoAssociationsidx indexes should be treated differently
@@ -138,8 +143,6 @@ class FCCSchema(BaseSchema):
         # create the main collections (Eg. ReconstructedParticle, Particle, etc)
         for name in collections:
             mixin = self.mixins_dictionary.get(name, "NanoCollection")
-            if name not in self._non_empty_composite_objects:
-                continue
 
             collection_content = {
                 k[(2 * len(name) + 2) :]: branch_forms.pop(k)
