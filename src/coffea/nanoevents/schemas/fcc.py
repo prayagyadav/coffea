@@ -53,7 +53,7 @@ class FCCSchema(BaseSchema):
         "ParticleIDs": "ParticleID",
         "Jet": "ReconstructedParticle",
         "EFlowTrack": "Track",
-        "*idx": "ObjectID"
+        "*idx": "ObjectID",
     }
 
     _momentum_fields_e = {
@@ -108,7 +108,7 @@ class FCCSchema(BaseSchema):
             output[repl] = zip_forms(
                 sort_dict(idx_content),
                 idx,
-                self.mixins_dictionary.get("*idx","NanoCollection"),
+                self.mixins_dictionary.get("*idx", "NanoCollection"),
             )
             output[repl]["content"]["parameters"].update(
                 {

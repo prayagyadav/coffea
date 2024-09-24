@@ -7,7 +7,6 @@ from coffea.nanoevents.schemas import (
     FCC,
     BaseSchema,
     DelphesSchema,
-    FCC,
     FCCSchema,
     NanoAODSchema,
     PDUNESchema,
@@ -28,5 +27,5 @@ __all__ = [
     "PDUNESchema",
     "ScoutingNanoAODSchema",
     "FCC",
-    "FCCSchema"
+    "FCCSchema",
 ]

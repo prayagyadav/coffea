@@ -17,6 +17,7 @@ class _FCCEvents(behavior["NanoEvents"]):
         #         {getattr(self,'event','??')}>"
         return "FCC Events"
 
+
 behavior["NanoEvents"] = _FCCEvents
 
 
@@ -25,6 +26,7 @@ def _set_repr_name(classname):
         return classname
 
     behavior[classname].__repr__ = namefcn
+
 
 def map_index_to_array(array, index, axis=1):
     """
@@ -78,6 +80,7 @@ def map_index_to_array(array, index, axis=1):
     else:
         raise AttributeError("Only axis = 1 or axis = 2 supported at the moment.")
 
+
 @numba.njit
 def index_range_numba_wrap(begin_end, builder):
     for ev in begin_end:
@@ -89,6 +92,7 @@ def index_range_numba_wrap(begin_end, builder):
             builder.end_list()
         builder.end_list()
     return builder
+
 
 def index_range(begin, end):
     begin_end = awkward.concatenate(
@@ -149,6 +153,7 @@ class MomentumCandidate(vector.LorentzVector):
     @property
     def absolute_mass(self):
         return numpy.sqrt(numpy.abs(self.mass2))
+
 
 behavior.update(
     awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior)
@@ -218,10 +223,9 @@ class MCParticle(MomentumCandidate, base.NanoCollection):
     def get_parents(self, dask_array):
         return map_index_to_array(dask_array, dask_array.get_parents_index, axis=2)
 
+
 _set_repr_name("MCParticle")
-behavior.update(
-    awkward._util.copy_behaviors(MomentumCandidate, MCParticle, behavior)
-)
+behavior.update(awkward._util.copy_behaviors(MomentumCandidate, MCParticle, behavior))
 
 MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
@@ -249,8 +253,11 @@ class ReconstructedParticle(MomentumCandidate, base.NanoCollection):
         index = dask_array._events().MCRecoAssociations.reco_mc_index[:, :, 1]
         return dask_array._events().Particle[index[sel]]
 
+
 _set_repr_name("ReconstructedParticle")
-behavior.update(awkward._util.copy_behaviors(MomentumCandidate, ReconstructedParticle, behavior))
+behavior.update(
+    awkward._util.copy_behaviors(MomentumCandidate, ReconstructedParticle, behavior)
+)
 
 ReconstructedParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 ReconstructedParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
@@ -298,6 +305,7 @@ class RecoMCParticleLink(base.NanoCollection):
 
         return awkward.concatenate((r, m), axis=2)
 
+
 _set_repr_name("RecoMCParticleLink")
 
 RecoMCParticleLinkArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
@@ -309,6 +317,7 @@ RecoMCParticleLinkArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 @awkward.mixin_class(behavior)
 class ParticleID(base.NanoCollection):
     """ParticleID collection"""
+
 
 _set_repr_name("ParticleID")
 
@@ -322,6 +331,7 @@ ParticleIDArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 class ObjectID(base.NanoCollection):
     """Generic Object ID storage, pointing to another collection"""
 
+
 _set_repr_name("ObjectID")
 
 ObjectIDArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
@@ -334,6 +344,7 @@ ObjectIDArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 class Cluster(base.NanoCollection):
     """Clusters"""
 
+
 _set_repr_name("Cluster")
 
 ClusterArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
@@ -345,6 +356,7 @@ ClusterArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 @awkward.mixin_class(behavior)
 class Track(base.NanoCollection):
     """Tracks"""
+
 
 _set_repr_name("Track")
 
