@@ -1,5 +1,6 @@
 from .base import BaseSchema
 from .delphes import DelphesSchema
+from .edm4hep import EDM4HEPSchema
 from .fcc import FCC, FCCSchema
 from .nanoaod import NanoAODSchema, PFNanoAODSchema, ScoutingNanoAODSchema
 from .pdune import PDUNESchema
@@ -17,4 +18,5 @@ __all__ = [
     "ScoutingNanoAODSchema",
     "FCC",
     "FCCSchema",
+    "EDM4HEPSchema"
 ]
