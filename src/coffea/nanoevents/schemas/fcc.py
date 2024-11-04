@@ -6,6 +6,8 @@ from coffea.nanoevents.methods import vector
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
 from coffea.nanoevents.util import concat
 
+from coffea.nanoevents.schemas.edm4hep import EDM4HEPSchema
+
 # Collection Regex #
 # Any branch name with a forward slash '/'
 # Example: 'ReconstructedParticles/ReconstructedParticles.energy'
@@ -593,6 +595,25 @@ class FCCSchema(BaseSchema):
         behavior.update(fcc.behavior)
         return behavior
 
+class FCCSchema_edm4hep1(EDM4HEPSchema):
+    
+     _datatype_mixins = {
+         'CalorimeterHits':'CalorimeterHit',
+         'EFlowNeutralHadron':'Cluster',
+         'EFlowPhoton':'Cluster',
+         'EFlowTrack':'Track',
+         'EFlowTrack_dNdx':'RecDqdx',
+         # 'Electron_objIdx':'ObjectID',
+         'EventHeader':'EventHeader',
+         'Jet':'ReconstructedParticle',
+         'MCRecoAssociations':'RecoMCParticleLink',
+         # 'Muon_objIdx':'ObjectID',
+         'Particle':'MCParticle',
+         'ParticleIDs':'ParticleID',
+         # 'Photon_objIdx':'ObjectID',
+         'ReconstructedParticles':'ReconstructedParticle',
+         'TrackerHits':'TrackerHit3D'
+     }
 
 class FCC:
     """
@@ -614,5 +635,7 @@ class FCC:
     def get_schema(cls, version="latest"):
         if version == "latest":
             return FCCSchema
+        elif version == "edm4hep1":
+            return FCCSchema_edm4hep1
         else:
             pass
