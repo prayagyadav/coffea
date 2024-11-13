@@ -603,14 +603,14 @@ class FCCSchema_edm4hep1(EDM4HEPSchema):
          'EFlowPhoton':'Cluster',
          'EFlowTrack':'Track',
          'EFlowTrack_dNdx':'RecDqdx',
-         # 'Electron_objIdx':'ObjectID',
+         'Electron_objIdx':'ObjectID',
          'EventHeader':'EventHeader',
          'Jet':'ReconstructedParticle',
          'MCRecoAssociations':'RecoMCParticleLink',
-         # 'Muon_objIdx':'ObjectID',
+         'Muon_objIdx':'ObjectID',
          'Particle':'MCParticle',
          'ParticleIDs':'ParticleID',
-         # 'Photon_objIdx':'ObjectID',
+         'Photon_objIdx':'ObjectID',
          'ReconstructedParticles':'ReconstructedParticle',
          'TrackerHits':'TrackerHit3D'
      }

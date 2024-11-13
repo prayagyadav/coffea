@@ -1,6 +1,7 @@
 from ast import Raise
 import copy
 import re
+import warnings
 
 from coffea.nanoevents import transforms
 from coffea.nanoevents.methods import vector
@@ -55,6 +56,22 @@ for key in edm4hep.keys():
                 parsed_edm4hep[key][subkey][subsubkey] = parse_Members_and_Relations(edm4hep[key][subkey][subsubkey], target_text=True)
 
 
+#Add extra datatypes
+parsed_edm4hep['datatypes']['edm4hep::ObjectID'] = {#Actually from podio, but, for parsing compatibilty, keep as edm4hep
+    'Description': "The Monte Carlo particle - based on the lcio::MCParticle.",
+    'Author': "Prayag Yadav",
+    'Members': {
+        'index': {
+            'type':'int64',
+            'doc':'indices to the target collection'
+        },
+        'collectionID': {
+            'type':'int64',
+            'doc':'indices to the target collection'
+        },
+    }
+}
+
 # Collection Regex #
 # Any branch name with a forward slash '/'
 # Example: 'ReconstructedParticles/ReconstructedParticles.energy'
@@ -88,12 +105,12 @@ class EDM4HEPSchema(BaseSchema):
         'Vector2i':'TwoVector',
         'Vector2f':'TwoVector',
         'Vector3f':'ThreeVector',
-        'TrackState':None,
-        'Quantity':None,
-        'covMatrix2f':None,
-        'covMatrix3f':None,
-        'covMatrix4f':None,
-        'covMatrix6f':None
+        'TrackState':'TrackState',
+        'Quantity':'Quantity',
+        'covMatrix2f':'covMatrix',
+        'covMatrix3f':'covMatrix',
+        'covMatrix4f':'covMatrix',
+        'covMatrix6f':'covMatrix'
 
     }
 
@@ -117,7 +134,7 @@ class EDM4HEPSchema(BaseSchema):
     }
     _replacement = {**_momentum_fields_e, **_two_vec_replacement}
 
-    def __init__(self, base_form):
+    def __init__(self, base_form, *args, **kwargs):
         super().__init__(base_form)
         self._form["fields"], self._form["contents"] = self._build_collections(
             self._form["fields"], self._form["contents"]
@@ -331,7 +348,7 @@ class EDM4HEPSchema(BaseSchema):
             for member in OneToOneRelations.keys():
                 if member in ['from','to'] : continue # Skip Link Collections
                 target_contents = {
-                    name.split('/')[1][1:].split('_')[1]:branch_forms.pop(name)
+                    name.split('/')[1][1:].split('_')[-1]:branch_forms.pop(name)
                     for name in fieldnames
                     if name.startswith(f'_{collection}_{member}') and (len(name.split('/')) > 1)
                 }
@@ -352,7 +369,9 @@ class EDM4HEPSchema(BaseSchema):
                     # Since We can't the collection ID from the events branch, truly matching collections
                     # seems impossible here
                     # For now, lets add the relation to all the matched collections
-                    if len(matched_collections) == 0 : raise RuntimeError(f'No matched collection for {target_datatype} found!')
+                    if len(matched_collections) == 0 :
+                        warnings.warn(f'No matched collection for {target_datatype} found!\n skipping ...')
+                        continue
                     for matched_collection in matched_collections:
 
                         #grab the offset from one of the branches of the target datatype
@@ -403,7 +422,7 @@ class EDM4HEPSchema(BaseSchema):
             for member in OneToManyRelations.keys():
                 if member in ['from','to'] : continue # Skip Link Collections
                 target_contents = {
-                    name.split('/')[1][1:].split('_')[1]:branch_forms.pop(name)
+                    name.split('/')[1][1:].split('_')[-1]:branch_forms.pop(name)
                     for name in fieldnames
                     if name.startswith(f'_{collection}_{member}') and (len(name.split('/')) > 1)
                 }
@@ -449,6 +468,8 @@ class EDM4HEPSchema(BaseSchema):
                         target_vars = parsed_edm4hep['datatypes']['edm4hep::'+target_datatype]['Members']
                         first_var = list(target_vars.keys())[0]
                         offset_form = branch_forms[f'{matched_collection}/{matched_collection}.{first_var}']
+                        # print(collection)
+                        # print(f'{matched_collection}/{matched_collection}.{first_var}')
                         target_datatype_offset_form = {
                             "class": "NumpyArray",
                             "itemsize": 8,
@@ -459,19 +480,27 @@ class EDM4HEPSchema(BaseSchema):
                                 "!offsets",
                             ),
                         }
+                        first_var = list(branch_var.keys())[0]
+                        zip_offset_form = branch_var[first_var]
+                        zip_datatype_offset_form = copy.deepcopy(target_datatype_offset_form)
+                        zip_datatype_offset_form['form_key'] = concat(zip_offset_form['form_key'], '!offsets')
 
                         OneToManyRelations_content = {
                             name.split('.')[1]:transforms.begin_end_range_form(begin_form, end_form, targetform)
                             for name, targetform in target_contents.items()
                         }
-                        OneToManyRelations_content.update(
-                            {
-                            name.split('.')[1]+'_Global':transforms.global_begin_end_range_form(begin_form, end_form, targetform)
+                        OneToManyRelations_content_global = {
+                            name.split('.')[1]+'_Global':transforms.global_begin_end_range_form(
+                                copy.deepcopy(begin_form),
+                                copy.deepcopy(end_form),
+                                copy.deepcopy(targetform),
+                                copy.deepcopy(target_datatype_offset_form)
+                            )
                             for name, targetform in target_contents.items()
                             if name.split('.')[1] == 'index'
                         }
-                        )
-                        target_form = zip_forms(OneToManyRelations_content, member)
+                        to_zip = {**OneToManyRelations_content, **OneToManyRelations_content_global}
+                        target_form = zip_forms(to_zip, member, offsets= zip_datatype_offset_form)
                         branch_forms[f'{collection}/{collection}.{member}_idx_{matched_collection}'] = target_form
                         branch_forms[f'{collection}/{collection}.{member}_idx_{matched_collection}']['parameters'] = {'__doc__':OneToManyRelations[member]['doc']}
 
@@ -668,6 +697,7 @@ class EDM4HEPSchema(BaseSchema):
                         for k in unlisted.keys()
                         if k.startswith(record_name + "/")
                     }
+                    if len(list(contents.keys())) == 0: continue
                     output[record_name] = zip_forms(
                         sort_dict(contents),
                         record_name,

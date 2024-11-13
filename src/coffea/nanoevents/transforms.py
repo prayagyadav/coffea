@@ -299,13 +299,16 @@ def index_range_global_index(array, begin, target):
             axis=1
         )
 
-def nested_local2global(array, target):
+def nested_local2global(array, target_offsets):
     counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
-    flat_index = awkward.values_astype(awkward.flatten(awkward.local_index(array), axis=2),"int64")
-    target_offsets = target.layout.offsets.data
+    # flat_index = awkward.values_astype(awkward.flatten(awkward.local_index(array), axis=2),"int64")
+    flat_index = awkward.values_astype(awkward.flatten(array, axis=2),"int64")
+    # print('\nflat_index 0',flat_index)
 
     flat_index = flat_index.mask[flat_index >= 0] + target_offsets[:-1]
+    # print('\nflat_index 1',flat_index)
     flat_index = flat_index.mask[flat_index < target_offsets[1:]]
+    # print('\nflat_index 2',flat_index)
     out = ensure_array(awkward.flatten(awkward.fill_none(flat_index, -1), axis=None))
     if out.dtype != numpy.int64:
         raise RuntimeError
@@ -324,8 +327,8 @@ def _begin_end_range_kernel(begin_end, builder):
             builder.end_list()
         builder.end_list()
     return builder
-    
-    
+
+
 def begin_end_range_form(begin_form, end_form, target_form):
     if not begin_form["class"].startswith("ListOffset"):
         raise RuntimeError
@@ -344,7 +347,12 @@ def begin_end_range_form(begin_form, end_form, target_form):
                 begin_form["form_key"], end_form["form_key"], target_form["form_key"], "!begin_end_range"
             ),
         },
-        "form_key": begin_form["form_key"] #this is used to extract event offsets
+        "form_key": concat(
+            begin_form["form_key"],
+            end_form["form_key"],
+            target_form["form_key"],
+            "!begin_end_range"
+        ) #this is used to extract event offsets
     }
     form['content']['content']['form_key'] = concat(
         begin_form["form_key"],
@@ -380,13 +388,13 @@ def begin_end_range(stack):
     counts2 = awkward.flatten(awkward.num(indices, axis=2), axis=1)
     flat2_out = target[flat2_indices]
     out = awkward.unflatten(flat2_out, counts2, axis=1)
-    
+
     # flatten across axis=1
     out = awkward.flatten(out, axis=1)
-    
+
     stack.append(out)
 
-def global_begin_end_range_form(begin_form, end_form, target_form):
+def global_begin_end_range_form(begin_form, end_form, target_form, offsets_form):
     if not begin_form["class"].startswith("ListOffset"):
         raise RuntimeError
     if not end_form["class"].startswith("ListOffset"):
@@ -401,15 +409,16 @@ def global_begin_end_range_form(begin_form, end_form, target_form):
             "offsets": "i64",
             "content": target_form['content'],
             "form_key": concat(
-                begin_form["form_key"], end_form["form_key"], target_form["form_key"], "!global_begin_end_range"
+                begin_form["form_key"], end_form["form_key"], target_form["form_key"], offsets_form["form_key"], "!global_begin_end_range"
             ),
         },
-        "form_key": begin_form["form_key"] #this is used to extract event offsets
+        "form_key":concat(begin_form["form_key"], end_form["form_key"], target_form["form_key"], offsets_form["form_key"], "!global_begin_end_range") #this is used to extract event offsets
     }
     form['content']['content']['form_key'] = concat(
         begin_form["form_key"],
         end_form["form_key"],
         target_form["form_key"],
+        offsets_form["form_key"],
         "!global_begin_end_range",
         "!content",
     )
@@ -422,6 +431,7 @@ def global_begin_end_range(stack):
         Get ranges (double nesting) of begin to end
         Corresponding to those index ranges, pick up elements from the target array(which are also indices)
     """
+    offsets = stack.pop()
     target = stack.pop()
     end = stack.pop()
     begin = stack.pop()
@@ -439,10 +449,21 @@ def global_begin_end_range(stack):
     counts2 = awkward.flatten(awkward.num(indices, axis=2), axis=1)
     flat2_out = target[flat2_indices]
     out = awkward.unflatten(flat2_out, counts2, axis=1)
-    
+
+    # print('raw')
+    # print(out)
+    # print(awkward.num(out, axis=1))
+    # print(awkward.num(out, axis=2))
+
     # Convert to global indices
-    out = nested_local2global(out,target)
-    
+    out = nested_local2global(out, offsets)
+
+    # print('global')
+    # print(out)
+    # print(out[0])
+    # print(out[-1])
+    # print(awkward.num(out, axis=1))
+
     stack.append(out)
 
 def counts2nestedindex_form(local_counts, target_offsets):
