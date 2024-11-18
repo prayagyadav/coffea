@@ -1,4 +1,3 @@
-from ast import Raise
 import copy
 import re
 import warnings
@@ -500,7 +499,8 @@ class EDM4HEPSchema(BaseSchema):
                             if name.split('.')[1] == 'index'
                         }
                         to_zip = {**OneToManyRelations_content, **OneToManyRelations_content_global}
-                        target_form = zip_forms(to_zip, member, offsets= zip_datatype_offset_form)
+                        target_form = zip_forms(to_zip, member)
+
                         branch_forms[f'{collection}/{collection}.{member}_idx_{matched_collection}'] = target_form
                         branch_forms[f'{collection}/{collection}.{member}_idx_{matched_collection}']['parameters'] = {'__doc__':OneToManyRelations[member]['doc']}
 

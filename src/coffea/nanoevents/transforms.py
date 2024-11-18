@@ -303,17 +303,17 @@ def nested_local2global(array, target_offsets):
     counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
     # flat_index = awkward.values_astype(awkward.flatten(awkward.local_index(array), axis=2),"int64")
     flat_index = awkward.values_astype(awkward.flatten(array, axis=2),"int64")
-    # print('\nflat_index 0',flat_index)
+
+    target_offsets = awkward.values_astype(target_offsets, "int64")
 
     flat_index = flat_index.mask[flat_index >= 0] + target_offsets[:-1]
-    # print('\nflat_index 1',flat_index)
     flat_index = flat_index.mask[flat_index < target_offsets[1:]]
-    # print('\nflat_index 2',flat_index)
     out = ensure_array(awkward.flatten(awkward.fill_none(flat_index, -1), axis=None))
     if out.dtype != numpy.int64:
         raise RuntimeError
 
-    return awkward.unflatten(out, counts2, axis=0)
+    nested_global = awkward.unflatten(out, counts2, axis=0)
+    return nested_global
 
 @numba.njit
 def _begin_end_range_kernel(begin_end, builder):
@@ -401,27 +401,29 @@ def global_begin_end_range_form(begin_form, end_form, target_form, offsets_form)
         raise RuntimeError
     if not target_form["class"].startswith("ListOffset"):
         raise RuntimeError
+    if not offsets_form["class"].startswith("NumpyArray"):
+        raise RuntimeError
+    key = concat(
+        begin_form["form_key"],
+        end_form["form_key"],
+        target_form["form_key"],
+        offsets_form["form_key"],
+        "!global_begin_end_range"
+    )
+    content_level1 = copy.deepcopy(target_form['content'])
+    content_level1['primitive'] = 'int64' #making sure the content dtype is int64 because mismatching dtypes cause a LOT of trouble
     form = {
         "class": "ListOffsetArray",
         "offsets": "i64",
         "content": {
             "class": "ListOffsetArray",
             "offsets": "i64",
-            "content": target_form['content'],
-            "form_key": concat(
-                begin_form["form_key"], end_form["form_key"], target_form["form_key"], offsets_form["form_key"], "!global_begin_end_range"
-            ),
+            "content": content_level1,
+            "form_key": key,
         },
-        "form_key":concat(begin_form["form_key"], end_form["form_key"], target_form["form_key"], offsets_form["form_key"], "!global_begin_end_range") #this is used to extract event offsets
+        "form_key":key #this is used to extract event offsets
     }
-    form['content']['content']['form_key'] = concat(
-        begin_form["form_key"],
-        end_form["form_key"],
-        target_form["form_key"],
-        offsets_form["form_key"],
-        "!global_begin_end_range",
-        "!content",
-    )
+    form['content']['content']['form_key'] = concat(key,"!content")
     return form
 
 def global_begin_end_range(stack):
@@ -450,19 +452,8 @@ def global_begin_end_range(stack):
     flat2_out = target[flat2_indices]
     out = awkward.unflatten(flat2_out, counts2, axis=1)
 
-    # print('raw')
-    # print(out)
-    # print(awkward.num(out, axis=1))
-    # print(awkward.num(out, axis=2))
-
     # Convert to global indices
     out = nested_local2global(out, offsets)
-
-    # print('global')
-    # print(out)
-    # print(out[0])
-    # print(out[-1])
-    # print(awkward.num(out, axis=1))
 
     stack.append(out)
 
