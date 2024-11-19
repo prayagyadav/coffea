@@ -29,5 +29,5 @@ __all__ = [
     "ScoutingNanoAODSchema",
     "FCC",
     "FCCSchema",
-    "EDM4HEPSchema"
+    "EDM4HEPSchema",
 ]

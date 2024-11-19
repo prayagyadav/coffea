@@ -287,22 +287,25 @@ def index_range(stack):
     out = index_range_global_index(out, begin, end)
     stack.append(out)
 
+
 def index_range_global_index(array, begin, target):
     """Helper function for index_range"""
     # Convert to global index
-    if awkward.sum(array) != 0 :
+    if awkward.sum(array) != 0:
         return nested_local2global(array, begin)
     elif awkward.sum(array) == 0:
         return awkward.flatten(
             awkward.full_like(
-                awkward.values_astype(begin, "int64")[:,:,numpy.newaxis], "-1"),
-            axis=1
+                awkward.values_astype(begin, "int64")[:, :, numpy.newaxis], "-1"
+            ),
+            axis=1,
         )
+
 
 def nested_local2global(array, target_offsets):
     counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
     # flat_index = awkward.values_astype(awkward.flatten(awkward.local_index(array), axis=2),"int64")
-    flat_index = awkward.values_astype(awkward.flatten(array, axis=2),"int64")
+    flat_index = awkward.values_astype(awkward.flatten(array, axis=2), "int64")
 
     target_offsets = awkward.values_astype(target_offsets, "int64")
 
@@ -314,6 +317,7 @@ def nested_local2global(array, target_offsets):
 
     nested_global = awkward.unflatten(out, counts2, axis=0)
     return nested_global
+
 
 @numba.njit
 def _begin_end_range_kernel(begin_end, builder):
@@ -342,19 +346,22 @@ def begin_end_range_form(begin_form, end_form, target_form):
         "content": {
             "class": "ListOffsetArray",
             "offsets": "i64",
-            "content": target_form['content'],
+            "content": target_form["content"],
             "form_key": concat(
-                begin_form["form_key"], end_form["form_key"], target_form["form_key"], "!begin_end_range"
+                begin_form["form_key"],
+                end_form["form_key"],
+                target_form["form_key"],
+                "!begin_end_range",
             ),
         },
         "form_key": concat(
             begin_form["form_key"],
             end_form["form_key"],
             target_form["form_key"],
-            "!begin_end_range"
-        ) #this is used to extract event offsets
+            "!begin_end_range",
+        ),  # this is used to extract event offsets
     }
-    form['content']['content']['form_key'] = concat(
+    form["content"]["content"]["form_key"] = concat(
         begin_form["form_key"],
         end_form["form_key"],
         target_form["form_key"],
@@ -394,6 +401,7 @@ def begin_end_range(stack):
 
     stack.append(out)
 
+
 def global_begin_end_range_form(begin_form, end_form, target_form, offsets_form):
     if not begin_form["class"].startswith("ListOffset"):
         raise RuntimeError
@@ -408,10 +416,12 @@ def global_begin_end_range_form(begin_form, end_form, target_form, offsets_form)
         end_form["form_key"],
         target_form["form_key"],
         offsets_form["form_key"],
-        "!global_begin_end_range"
+        "!global_begin_end_range",
     )
-    content_level1 = copy.deepcopy(target_form['content'])
-    content_level1['primitive'] = 'int64' #making sure the content dtype is int64 because mismatching dtypes cause a LOT of trouble
+    content_level1 = copy.deepcopy(target_form["content"])
+    content_level1["primitive"] = (
+        "int64"  # making sure the content dtype is int64 because mismatching dtypes cause a LOT of trouble
+    )
     form = {
         "class": "ListOffsetArray",
         "offsets": "i64",
@@ -421,10 +431,11 @@ def global_begin_end_range_form(begin_form, end_form, target_form, offsets_form)
             "content": content_level1,
             "form_key": key,
         },
-        "form_key":key #this is used to extract event offsets
+        "form_key": key,  # this is used to extract event offsets
     }
-    form['content']['content']['form_key'] = concat(key,"!content")
+    form["content"]["content"]["form_key"] = concat(key, "!content")
     return form
+
 
 def global_begin_end_range(stack):
     """
@@ -456,6 +467,7 @@ def global_begin_end_range(stack):
     out = nested_local2global(out, offsets)
 
     stack.append(out)
+
 
 def counts2nestedindex_form(local_counts, target_offsets):
     if not local_counts["class"].startswith("ListOffset"):

@@ -4,9 +4,8 @@ import re
 from coffea.nanoevents import transforms
 from coffea.nanoevents.methods import vector
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
-from coffea.nanoevents.util import concat
-
 from coffea.nanoevents.schemas.edm4hep import EDM4HEPSchema
+from coffea.nanoevents.util import concat
 
 # Collection Regex #
 # Any branch name with a forward slash '/'
@@ -595,25 +594,27 @@ class FCCSchema(BaseSchema):
         behavior.update(fcc.behavior)
         return behavior
 
+
 class FCCSchema_edm4hep1(EDM4HEPSchema):
-    
-     _datatype_mixins = {
-         'CalorimeterHits':'CalorimeterHit',
-         'EFlowNeutralHadron':'Cluster',
-         'EFlowPhoton':'Cluster',
-         'EFlowTrack':'Track',
-         'EFlowTrack_dNdx':'RecDqdx',
-         'Electron_objIdx':'ObjectID',
-         'EventHeader':'EventHeader',
-         'Jet':'ReconstructedParticle',
-         'MCRecoAssociations':'RecoMCParticleLink',
-         'Muon_objIdx':'ObjectID',
-         'Particle':'MCParticle',
-         'ParticleIDs':'ParticleID',
-         'Photon_objIdx':'ObjectID',
-         'ReconstructedParticles':'ReconstructedParticle',
-         'TrackerHits':'TrackerHit3D'
-     }
+
+    _datatype_mixins = {
+        "CalorimeterHits": "CalorimeterHit",
+        "EFlowNeutralHadron": "Cluster",
+        "EFlowPhoton": "Cluster",
+        "EFlowTrack": "Track",
+        "EFlowTrack_dNdx": "RecDqdx",
+        "Electron_objIdx": "ObjectID",
+        "EventHeader": "EventHeader",
+        "Jet": "ReconstructedParticle",
+        "MCRecoAssociations": "RecoMCParticleLink",
+        "Muon_objIdx": "ObjectID",
+        "Particle": "MCParticle",
+        "ParticleIDs": "ParticleID",
+        "Photon_objIdx": "ObjectID",
+        "ReconstructedParticles": "ReconstructedParticle",
+        "TrackerHits": "TrackerHit3D",
+    }
+
 
 class FCC:
     """

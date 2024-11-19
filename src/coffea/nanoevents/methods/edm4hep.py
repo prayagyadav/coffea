@@ -1,6 +1,6 @@
 import awkward
 import numpy
-from dask_awkward.lib.core import dask_property, dask_method
+from dask_awkward.lib.core import dask_method, dask_property
 
 from coffea.nanoevents.methods import base, vector
 
@@ -22,49 +22,50 @@ def _set_repr_name(classname):
 
     behavior[classname].__repr__ = namefcn
 
+
 @awkward.mixin_class(behavior)
 class edm4hep_nanocollection(base.NanoCollection):
-    ''' Modified NanoCollection for EDM4HEP
-    '''
+    """Modified NanoCollection for EDM4HEP"""
+
     @dask_property
     def List_Relations(self):
-        ''' List all the branches that are for OneToOneRelations or OneToManyRelations
-        '''
-        idxs = {
-            name
-            for name in self.fields
-            if '_idx_' in name
-        }
+        """List all the branches that are for OneToOneRelations or OneToManyRelations"""
+        idxs = {name for name in self.fields if "_idx_" in name}
         return idxs
 
     @List_Relations.dask
     def List_Relations(self, dask_array):
-        ''' List all the branches that are for OneToOneRelations or OneToManyRelations
-        '''
-        idxs = {
-            name
-            for name in dask_array.fields
-            if '_idx_' in name
-        }
+        """List all the branches that are for OneToOneRelations or OneToManyRelations"""
+        idxs = {name for name in dask_array.fields if "_idx_" in name}
         return idxs
 
     @dask_method
     def Map_Relation(self, generic_name, target_name):
-        idx_field_name = generic_name+'_idx_'+target_name
+        idx_field_name = generic_name + "_idx_" + target_name
         if idx_field_name not in self.fields:
-            raise FileNotFoundError(f"{idx_field_name} not found in the current collection")
-        return self._events()[target_name]._apply_global_index(self[idx_field_name]['index_Global'])
+            raise FileNotFoundError(
+                f"{idx_field_name} not found in the current collection"
+            )
+        return self._events()[target_name]._apply_global_index(
+            self[idx_field_name]["index_Global"]
+        )
 
     @Map_Relation.dask
     def Map_Relation(self, dask_array, generic_name, target_name):
-        idx_field_name = generic_name+'_idx_'+target_name
+        idx_field_name = generic_name + "_idx_" + target_name
         if idx_field_name not in dask_array.fields:
-            raise FileNotFoundError(f"{idx_field_name} not found in the current collection")
-        return dask_array._events()[target_name]._apply_global_index(dask_array[idx_field_name]['index_Global'])
+            raise FileNotFoundError(
+                f"{idx_field_name} not found in the current collection"
+            )
+        return dask_array._events()[target_name]._apply_global_index(
+            dask_array[idx_field_name]["index_Global"]
+        )
+
 
 behavior.update(
     awkward._util.copy_behaviors(base.NanoCollection, edm4hep_nanocollection, behavior)
 )
+
 
 @awkward.mixin_class(behavior)
 class MomentumCandidate(vector.LorentzVector):
@@ -105,6 +106,8 @@ class MomentumCandidate(vector.LorentzVector):
     @property
     def absolute_mass(self):
         return numpy.sqrt(numpy.abs(self.mass2))
+
+
 behavior.update(
     awkward._util.copy_behaviors(vector.LorentzVector, MomentumCandidate, behavior)
 )
@@ -113,29 +116,35 @@ MomentumCandidateArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MomentumCandidateArray.ProjectionClass4D = vector.LorentzVectorArray  # noqa: F821
 MomentumCandidateArray.MomentumClass = MomentumCandidateArray  # noqa: F821
 
+
 #########################################################################################
 # Selected Components #
 #########################################################################################
 @awkward.mixin_class(behavior)
 class TrackState(base.NanoCollection):
-    """ EDM4HEP Component: TrackState
-    """
+    """EDM4HEP Component: TrackState"""
+
+
 _set_repr_name("TrackState")
 TrackState.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 TrackState.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 TrackState.ProjectionClass4D = TrackState  # noqa: F821
 TrackState.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
+
 @awkward.mixin_class(behavior)
 class Quantity(base.NanoCollection):
-    """ EDM4HEP Component: Quantity
-    """
+    """EDM4HEP Component: Quantity"""
+
+
 _set_repr_name("Quantity")
+
 
 @awkward.mixin_class(behavior)
 class covMatrix(base.NanoCollection):
-    """ EDM4HEP Component: covMatrix
-    """
+    """EDM4HEP Component: covMatrix"""
+
+
 _set_repr_name("covMatrix")
 
 
@@ -144,14 +153,15 @@ _set_repr_name("covMatrix")
 #########################################################################################
 @awkward.mixin_class(behavior)
 class EventHeader(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: EventHeader
-    """
+    """EDM4HEP Datatype: EventHeader"""
+
+
 _set_repr_name("EventHeader")
+
 
 @awkward.mixin_class(behavior)
 class MCParticle(MomentumCandidate, edm4hep_nanocollection):
-    """EDM4HEP Datatype: MCParticle
-    """
+    """EDM4HEP Datatype: MCParticle"""
 
     # Daughters
     @dask_property
@@ -238,6 +248,8 @@ class MCParticle(MomentumCandidate, edm4hep_nanocollection):
         return dask_array._events().Particle._apply_global_index(
             dask_array.get_parents_index
         )
+
+
 _set_repr_name("MCParticle")
 behavior.update(awkward._util.copy_behaviors(MomentumCandidate, MCParticle, behavior))
 MCParticleArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
@@ -245,82 +257,106 @@ MCParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
 MCParticleArray.ProjectionClass4D = MCParticleArray  # noqa: F821
 MCParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
+
 @awkward.mixin_class(behavior)
 class SimTrackerHit(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: SimTrackerHit
-    """
+    """EDM4HEP Datatype: SimTrackerHit"""
+
+
 _set_repr_name("SimTrackerHit")
+
 
 @awkward.mixin_class(behavior)
 class CaloHitContribution(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: CaloHitContribution
-    """
+    """EDM4HEP Datatype: CaloHitContribution"""
+
+
 _set_repr_name("CaloHitContribution")
+
 
 @awkward.mixin_class(behavior)
 class SimCalorimeterHit(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: SimCalorimeterHit
-    """
+    """EDM4HEP Datatype: SimCalorimeterHit"""
+
+
 _set_repr_name("SimCalorimeterHit")
+
 
 @awkward.mixin_class(behavior)
 class RawCalorimeterHit(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: RawCalorimeterHit
-    """
+    """EDM4HEP Datatype: RawCalorimeterHit"""
+
+
 _set_repr_name("RawCalorimeterHit")
+
 
 @awkward.mixin_class(behavior)
 class CalorimeterHit(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: CalorimeterHit
-    """
+    """EDM4HEP Datatype: CalorimeterHit"""
+
+
 _set_repr_name("CalorimeterHit")
+
 
 @awkward.mixin_class(behavior)
 class ParticleID(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: ParticleID
-    """
+    """EDM4HEP Datatype: ParticleID"""
+
+
 _set_repr_name("ParticleID")
+
 
 @awkward.mixin_class(behavior)
 class Cluster(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: ParticleID
-    """
+    """EDM4HEP Datatype: ParticleID"""
+
+
 _set_repr_name("Cluster")
+
 
 @awkward.mixin_class(behavior)
 class TrackerHit3D(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: TrackerHit3D
-    """
+    """EDM4HEP Datatype: TrackerHit3D"""
+
+
 _set_repr_name("TrackerHit3D")
+
 
 @awkward.mixin_class(behavior)
 class TrackerHitPlane(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: TrackerHitPlane
-    """
+    """EDM4HEP Datatype: TrackerHitPlane"""
+
+
 _set_repr_name("TrackerHitPlane")
+
 
 @awkward.mixin_class(behavior)
 class RawTimeSeries(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: RawTimeSeries
-    """
+    """EDM4HEP Datatype: RawTimeSeries"""
+
+
 _set_repr_name("RawTimeSeries")
+
 
 @awkward.mixin_class(behavior)
 class Track(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: Track
-    """
+    """EDM4HEP Datatype: Track"""
+
+
 _set_repr_name("Track")
+
 
 @awkward.mixin_class(behavior)
 class Vertex(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: Vertex
-    """
+    """EDM4HEP Datatype: Vertex"""
+
+
 _set_repr_name("Vertex")
+
 
 @awkward.mixin_class(behavior)
 class ReconstructedParticle(MomentumCandidate, edm4hep_nanocollection):
-    """ EDM4HEP Datatype: Reconstructed particle
-    """
+    """EDM4HEP Datatype: Reconstructed particle"""
 
     def match_collection(self, idx):
         """Returns matched particles; pass on an ObjectID array."""
@@ -373,6 +409,8 @@ class ReconstructedParticle(MomentumCandidate, edm4hep_nanocollection):
         return prepared._apply_global_index(
             dask_array.MCRecoAssociationsidx0_indexGlobal
         )
+
+
 _set_repr_name("ReconstructedParticle")
 behavior.update(
     awkward._util.copy_behaviors(MomentumCandidate, ReconstructedParticle, behavior)
@@ -382,16 +420,20 @@ ReconstructedParticleArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: 
 ReconstructedParticleArray.ProjectionClass4D = ReconstructedParticleArray  # noqa: F821
 ReconstructedParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
+
 @awkward.mixin_class(behavior)
 class TimeSeries(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: TimeSeries
-    """
+    """EDM4HEP Datatype: TimeSeries"""
+
+
 _set_repr_name("TimeSeries")
+
 
 @awkward.mixin_class(behavior)
 class RecDqdx(edm4hep_nanocollection):
-    """ EDM4HEP Datatype: RecDqdx
-    """
+    """EDM4HEP Datatype: RecDqdx"""
+
+
 _set_repr_name("RecDqdx")
 
 
@@ -400,8 +442,7 @@ _set_repr_name("RecDqdx")
 #########################################################################################
 @awkward.mixin_class(behavior)
 class RecoMCParticleLink(edm4hep_nanocollection):
-    """ EDM4HEP Link: MCRecoParticleLink
-    """
+    """EDM4HEP Link: MCRecoParticleLink"""
 
     @property
     def reco_mc_index(self):
@@ -440,6 +481,8 @@ class RecoMCParticleLink(edm4hep_nanocollection):
         m = dask_array._events().Particle[mc_index][:, :, numpy.newaxis]
 
         return awkward.concatenate((r, m), axis=2)
+
+
 _set_repr_name("RecoMCParticleLink")
 RecoMCParticleLinkArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 RecoMCParticleLinkArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
@@ -456,4 +499,6 @@ class ObjectID(base.NanoCollection):
     Generic Object ID storage, pointing to another collection.
     Usually have the <podio::ObjectID> type
     """
+
+
 _set_repr_name("ObjectID")
