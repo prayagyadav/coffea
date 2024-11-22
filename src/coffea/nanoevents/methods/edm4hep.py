@@ -61,6 +61,41 @@ class edm4hep_nanocollection(base.NanoCollection):
             dask_array[idx_field_name]["index_Global"]
         )
 
+    @dask_property
+    def List_Links(self):
+        """List all the branches that are Links"""
+        idxs = {name for name in self.fields if (("Link_from" in name) or ("Link_to" in name))}
+        return idxs
+
+    @List_Links.dask
+    def List_Links(self, dask_array):
+        """List all the branches that are Links"""
+        idxs = {name for name in dask_array.fields if (("Link_from" in name) or ("Link_to" in name))}
+        return idxs
+
+    @dask_method
+    def Map_Link(self, generic_name, target_name):
+        # idx_field_name = generic_name + "_idx_" + target_name
+        idx_field_name = 'Link_'+generic_name+'_'+target_name
+        if idx_field_name not in self.fields:
+            raise FileNotFoundError(
+                f"{idx_field_name} not found in the current collection"
+            )
+        return self._events()[target_name]._apply_global_index(
+            self[idx_field_name]["index_Global"]
+        )
+
+    @Map_Link.dask
+    def Map_Link(self, dask_array, generic_name, target_name):
+        # idx_field_name = generic_name + "_idx_" + target_name
+        idx_field_name = 'Link_'+generic_name+'_'+target_name
+        if idx_field_name not in dask_array.fields:
+            raise FileNotFoundError(
+                f"{idx_field_name} not found in the current collection"
+            )
+        return dask_array._events()[target_name]._apply_global_index(
+            dask_array[idx_field_name]["index_Global"]
+        )
 
 behavior.update(
     awkward._util.copy_behaviors(base.NanoCollection, edm4hep_nanocollection, behavior)

@@ -231,7 +231,7 @@ class EDM4HEPSchema(BaseSchema):
         """
 
         def assign_doc(branch, doc):
-            branch["parameters"]["__doc__"] = doc
+            branch["content"]["parameters"]["__doc__"] = doc
             return branch
 
         fieldnames = list(branch_forms.keys())
@@ -270,7 +270,8 @@ class EDM4HEPSchema(BaseSchema):
                             if len(branch_name_split) > 2:
                                 branch_var = branch_name_split[-2]
                                 branch_subvar = branch_name_split[-1]
-                                # skip momentum because it will be used later to create 4 vector with E or mass
+                                # skip momentum because it will be used
+                                # later to create 4 vector with E or mass
                                 if branch_var == "momentum":
                                     continue
                                 component = self._lookup_branch(collection, branch_var)
@@ -329,7 +330,8 @@ class EDM4HEPSchema(BaseSchema):
                 vars = list(target_contents.keys())
                 if len(vars) == 0:
                     if not vec_members[member]["type"].startswith("edm4hep::"):
-                        # Example : _EventHeader_weights where 'weights' is the VectorMember of 'EventHeader' datatype
+                        # Example : _EventHeader_weights where 'weights'
+                        # is the VectorMember of 'EventHeader' datatype
                         # ('weights' not to be confused with 'weight' )
                         associated_target_form = branch_forms.get(
                             f"_{collection}_{member}", None
@@ -358,7 +360,7 @@ class EDM4HEPSchema(BaseSchema):
                     target_form = zip_forms(vec_contents, member)
 
                 branch_forms[f"{collection}/{collection}.{member}"] = target_form
-                branch_forms[f"{collection}/{collection}.{member}"]["parameters"] = {
+                branch_forms[f"{collection}/{collection}.{member}"]["content"]["parameters"] = {
                     "__doc__": vec_members[member]["doc"]
                 }
 
@@ -455,7 +457,7 @@ class EDM4HEPSchema(BaseSchema):
                         ] = target_form
                         branch_forms[
                             f"{collection}/{collection}.{member}_idx_{matched_collection}"
-                        ]["parameters"] = {"__doc__": OneToOneRelations[member]["doc"]}
+                        ]["content"]["parameters"] = {"__doc__": OneToOneRelations[member]["doc"]}
 
         return branch_forms
 
@@ -595,7 +597,7 @@ class EDM4HEPSchema(BaseSchema):
                         ] = target_form
                         branch_forms[
                             f"{collection}/{collection}.{member}_idx_{matched_collection}"
-                        ]["parameters"] = {"__doc__": OneToManyRelations[member]["doc"]}
+                        ]["content"]["parameters"] = {"__doc__": OneToManyRelations[member]["doc"]}
 
         return branch_forms
 
@@ -622,6 +624,9 @@ class EDM4HEPSchema(BaseSchema):
                 link_name in OneToOneRelations.keys() for link_name in ["from", "to"]
             ):
                 continue
+            set_matched_collections = set()
+            dict_branches_to_copy = {}
+            dict_docs_of_branches = {}
             for member in OneToOneRelations.keys():
                 if member in ["from", "to"]:
                     target_contents = {
@@ -668,6 +673,7 @@ class EDM4HEPSchema(BaseSchema):
                                 raise RuntimeError(
                                     f"No matched collection for {target_datatype} found!"
                                 )
+
                         for matched_collection in matched_collections:
                             # grab the offset from one of the branches of the target datatype
                             target_datatype = self._datatype_mixins.get(
@@ -682,6 +688,7 @@ class EDM4HEPSchema(BaseSchema):
                             offset_form = branch_forms[
                                 f"{matched_collection}/{matched_collection}.{first_var}"
                             ]
+
                             target_datatype_offset_form = {
                                 "class": "NumpyArray",
                                 "itemsize": 8,
@@ -705,6 +712,7 @@ class EDM4HEPSchema(BaseSchema):
                                     )
                                 }
                             )
+
                             target_form = zip_forms(OneToOneRelations_content, member)
                             branch_forms[
                                 f"{collection}/{collection}.Link_{member}_{matched_collection}"
@@ -714,6 +722,26 @@ class EDM4HEPSchema(BaseSchema):
                             ]["parameters"] = {
                                 "__doc__": OneToOneRelations[member]["doc"]
                             }
+                            # Also copy this to the matched_collections
+                            # First collect all the branches that need to be copied
+                            set_matched_collections.update({matched_collection})
+                            dict_branches_to_copy.update({
+                                f'Link_{member}_{matched_collection}':target_form
+                            })
+                            dict_docs_of_branches.update({
+                                f'Link_{member}_{matched_collection}':OneToOneRelations[member]["doc"]
+                            })
+            #Finally, copy the available branches to the set of matched_collections
+            for matched_collection in set_matched_collections:
+                for name in dict_branches_to_copy.keys():
+                    branch_forms[
+                        f"{matched_collection}/{matched_collection}.{name}"
+                    ] = dict_branches_to_copy[name]
+                    branch_forms[
+                        f"{matched_collection}/{matched_collection}.{name}"
+                    ]["content"]["parameters"] = {
+                        "__doc__": dict_docs_of_branches[name]
+                    }
 
         return branch_forms
 
@@ -765,7 +793,19 @@ class EDM4HEPSchema(BaseSchema):
                 for k, v in collection_content.items()
             }
 
-            output[name] = zip_forms(sort_dict(collection_content), name, mixin)
+            first_var_form = collection_content[list(collection_content.keys())[0]]
+            offset_form = {
+                "class": "NumpyArray",
+                "itemsize": 8,
+                "format": "i",
+                "primitive": "int64",
+                "form_key": concat(
+                    first_var_form["form_key"],
+                    "!offsets",
+                ),
+            }
+
+            output[name] = zip_forms(sort_dict(collection_content), name, record_name=mixin)
             # Update some metadata
             output[name]["content"]["parameters"].update(
                 {
@@ -872,6 +912,7 @@ class EDM4HEPSchema(BaseSchema):
         )
 
         # sort the output by key
+        # output = sort_dict(branch_forms)
         output = sort_dict(output)
 
         return output.keys(), output.values()

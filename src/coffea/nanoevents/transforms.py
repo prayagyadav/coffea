@@ -292,7 +292,7 @@ def index_range_global_index(array, begin, target):
     """Helper function for index_range"""
     # Convert to global index
     if awkward.sum(array) != 0:
-        return nested_local2global(array, begin)
+        return nested_local2global(array, begin.layout.offsets.data)
     elif awkward.sum(array) == 0:
         return awkward.flatten(
             awkward.full_like(
@@ -354,12 +354,13 @@ def begin_end_range_form(begin_form, end_form, target_form):
                 "!begin_end_range",
             ),
         },
-        "form_key": concat(
-            begin_form["form_key"],
-            end_form["form_key"],
-            target_form["form_key"],
-            "!begin_end_range",
-        ),  # this is used to extract event offsets
+        # "form_key": concat(
+        #     begin_form["form_key"],
+        #     end_form["form_key"],
+        #     target_form["form_key"],
+        #     "!begin_end_range",
+        # ),
+        "form_key": begin_form["form_key"]  # this is used to extract event offsets
     }
     form["content"]["content"]["form_key"] = concat(
         begin_form["form_key"],
@@ -431,7 +432,8 @@ def global_begin_end_range_form(begin_form, end_form, target_form, offsets_form)
             "content": content_level1,
             "form_key": key,
         },
-        "form_key": key,  # this is used to extract event offsets
+        # "form_key": key,  # this is used to extract event offsets
+        "form_key":begin_form["form_key"]
     }
     form["content"]["content"]["form_key"] = concat(key, "!content")
     return form
