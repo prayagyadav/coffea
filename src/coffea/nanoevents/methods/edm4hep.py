@@ -3,6 +3,7 @@ import numpy
 from dask_awkward.lib.core import dask_method, dask_property
 
 from coffea.nanoevents.methods import base, vector
+from coffea.nanoevents.methods.base import _ClassMethodFn
 
 behavior = {}
 behavior.update(base.behavior)
@@ -27,6 +28,33 @@ def _set_repr_name(classname):
 class edm4hep_nanocollection(base.NanoCollection):
     """Modified NanoCollection for EDM4HEP"""
 
+    @dask_method
+    def _apply_nested_global_index(self, index):
+        # extract the shape of the index
+        counts1 = awkward.num(index, axis=1)
+        counts2 = awkward.flatten(awkward.num(index, axis=2), axis=1)
+        if index.ndim == 4:
+            counts3 = awkward.ravel(awkward.num(index, axis=3))
+
+        # Apply the flat index
+        out = self._apply_global_index(awkward.ravel(index))
+
+        # Rebuild the shape of the index
+        if index.ndim == 4:
+            out = awkward.unflatten(out, counts3, axis=0)
+        out = awkward.unflatten(out, counts2, axis=0)
+        out = awkward.unflatten(out, counts1, axis=0)
+
+        return out
+
+    @_apply_nested_global_index.dask
+    def _apply_nested_global_index(self, dask_array, index):
+        return dask_array.map_partitions(
+            _ClassMethodFn("_apply_nested_global_index"),
+            index,
+            label="apply_nested_global_index",
+        )
+
     @dask_property
     def List_Relations(self):
         """List all the branches that are for OneToOneRelations or OneToManyRelations"""
@@ -41,61 +69,86 @@ class edm4hep_nanocollection(base.NanoCollection):
 
     @dask_method
     def Map_Relation(self, generic_name, target_name):
-        idx_field_name = generic_name + "_idx_" + target_name
-        if idx_field_name not in self.fields:
+        name_struct = generic_name + "_idx_" + target_name + "_index_Global"
+        idx_field_names = [name for name in self.fields if name_struct in name]
+        if len(idx_field_names) == 0:
             raise FileNotFoundError(
-                f"{idx_field_name} not found in the current collection"
+                f"*{name_struct} not found in the current collection"
             )
-        return self._events()[target_name]._apply_global_index(
-            self[idx_field_name]["index_Global"]
-        )
+        elif len(idx_field_names) > 1:
+            raise RuntimeError(f"More than one field available for *{name_struct}!")
+
+        index = self[idx_field_names[0]]
+        if index.ndim == 2:
+            return self._events()[target_name]._apply_global_index(index)
+        elif index.ndim == 3 or index.ndim == 4:
+            return self._events()[target_name]._apply_nested_global_index(index)
+        else:
+            raise RuntimeError(f"Index is highly nested!\n{index}")
 
     @Map_Relation.dask
     def Map_Relation(self, dask_array, generic_name, target_name):
-        idx_field_name = generic_name + "_idx_" + target_name
-        if idx_field_name not in dask_array.fields:
+        name_struct = generic_name + "_idx_" + target_name + "_index_Global"
+        idx_field_names = [name for name in dask_array.fields if name_struct in name]
+        if len(idx_field_names) == 0:
             raise FileNotFoundError(
-                f"{idx_field_name} not found in the current collection"
+                f"*{name_struct} not found in the current collection"
             )
-        return dask_array._events()[target_name]._apply_global_index(
-            dask_array[idx_field_name]["index_Global"]
-        )
+        elif len(idx_field_names) > 1:
+            raise RuntimeError(f"More than one field available for *{name_struct}!")
+
+        index = dask_array[idx_field_names[0]]
+        if index.ndim == 2:
+            return dask_array._events()[target_name]._apply_global_index(index)
+        elif index.ndim == 3 or index.ndim == 4:
+            return dask_array._events()[target_name]._apply_nested_global_index(index)
+        else:
+            raise RuntimeError(f"Index is highly nested!\n{index}")
 
     @dask_property
     def List_Links(self):
         """List all the branches that are Links"""
-        idxs = {name for name in self.fields if (("Link_from" in name) or ("Link_to" in name))}
+        idxs = {
+            name
+            for name in self.fields
+            if (("Link_from" in name) or ("Link_to" in name))
+        }
         return idxs
 
     @List_Links.dask
     def List_Links(self, dask_array):
         """List all the branches that are Links"""
-        idxs = {name for name in dask_array.fields if (("Link_from" in name) or ("Link_to" in name))}
+        idxs = {
+            name
+            for name in dask_array.fields
+            if (("Link_from" in name) or ("Link_to" in name))
+        }
         return idxs
 
     @dask_method
     def Map_Link(self, generic_name, target_name):
         # idx_field_name = generic_name + "_idx_" + target_name
-        idx_field_name = 'Link_'+generic_name+'_'+target_name
+        idx_field_name = "Link_" + generic_name + "_" + target_name
         if idx_field_name not in self.fields:
             raise FileNotFoundError(
                 f"{idx_field_name} not found in the current collection"
             )
-        return self._events()[target_name]._apply_global_index(
+        return self._events()[target_name]._apply_nested_global_index(
             self[idx_field_name]["index_Global"]
         )
 
     @Map_Link.dask
     def Map_Link(self, dask_array, generic_name, target_name):
         # idx_field_name = generic_name + "_idx_" + target_name
-        idx_field_name = 'Link_'+generic_name+'_'+target_name
+        idx_field_name = "Link_" + generic_name + "_" + target_name
         if idx_field_name not in dask_array.fields:
             raise FileNotFoundError(
                 f"{idx_field_name} not found in the current collection"
             )
-        return dask_array._events()[target_name]._apply_global_index(
+        return dask_array._events()[target_name]._apply_nested_global_index(
             dask_array[idx_field_name]["index_Global"]
         )
+
 
 behavior.update(
     awkward._util.copy_behaviors(base.NanoCollection, edm4hep_nanocollection, behavior)

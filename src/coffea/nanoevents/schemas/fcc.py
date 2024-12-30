@@ -596,7 +596,7 @@ class FCCSchema(BaseSchema):
 
 
 class FCCSchema_edm4hep1(EDM4HEPSchema):
-    '''
+    """
     Schema-builder for Future Circular Collider pregenerated samples.
     https://fcc-physics-events.web.cern.ch/
 
@@ -604,7 +604,8 @@ class FCCSchema_edm4hep1(EDM4HEPSchema):
     from the EDM4HEPSchema and adds a few more functionality.
 
     For more info, check EDM4HEPSchema
-    '''
+    """
+
     _datatype_mixins = {
         "CalorimeterHits": "CalorimeterHit",
         "EFlowNeutralHadron": "Cluster",

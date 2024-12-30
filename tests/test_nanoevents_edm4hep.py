@@ -28,40 +28,40 @@ def delayed_events():
 @pytest.mark.parametrize(
     "field",
     [
-        'CaloHitContributionCollection',
-        'CaloHitMCParticleLinkCollection',
-        'CaloHitSimCaloHitLinkCollection',
-        'CalorimeterHitCollection',
-        'ClusterCollection',
-        'ClusterMCParticleLinkCollection',
-        'EventHeader',
-        'GPDoubleKeys',
-        'GPDoubleValues',
-        'GPFloatKeys',
-        'GPFloatValues',
-        'GPIntKeys',
-        'GPIntValues',
-        'GPStringKeys',
-        'GPStringValues',
-        'GeneratorEventParametersCollection',
-        'GeneratorPdfInfoCollection',
-        'MCParticleCollection',
-        'ParticleIDCollection',
-        'RawCalorimeterHitCollection',
-        'RawTimeSeriesCollection',
-        'RecDqdxCollection',
-        'RecoMCParticleLinkCollection',
-        'ReconstructedParticleCollection',
-        'SimCalorimeterHitCollection',
-        'SimTrackerHitCollection',
-        'TimeSeriesCollection',
-        'TrackCollection',
-        'TrackMCParticleLinkCollection',
-        'TrackerHit3DCollection',
-        'TrackerHitPlaneCollection',
-        'TrackerHitSimTrackerHitLinkCollection',
-        'VertexCollection',
-        'VertexRecoParticleLinkCollection'
+        "CaloHitContributionCollection",
+        "CaloHitMCParticleLinkCollection",
+        "CaloHitSimCaloHitLinkCollection",
+        "CalorimeterHitCollection",
+        "ClusterCollection",
+        "ClusterMCParticleLinkCollection",
+        "EventHeader",
+        "GPDoubleKeys",
+        "GPDoubleValues",
+        "GPFloatKeys",
+        "GPFloatValues",
+        "GPIntKeys",
+        "GPIntValues",
+        "GPStringKeys",
+        "GPStringValues",
+        "GeneratorEventParametersCollection",
+        "GeneratorPdfInfoCollection",
+        "MCParticleCollection",
+        "ParticleIDCollection",
+        "RawCalorimeterHitCollection",
+        "RawTimeSeriesCollection",
+        "RecDqdxCollection",
+        "RecoMCParticleLinkCollection",
+        "ReconstructedParticleCollection",
+        "SimCalorimeterHitCollection",
+        "SimTrackerHitCollection",
+        "TimeSeriesCollection",
+        "TrackCollection",
+        "TrackMCParticleLinkCollection",
+        "TrackerHit3DCollection",
+        "TrackerHitPlaneCollection",
+        "TrackerHitSimTrackerHitLinkCollection",
+        "VertexCollection",
+        "VertexRecoParticleLinkCollection",
     ],
 )
 def test_field_is_present(eager_events, delayed_events, field):
@@ -70,16 +70,18 @@ def test_field_is_present(eager_events, delayed_events, field):
     assert field in eager_fields
     assert field in delayed_fields
 
+
 def test_MC_daughters(delayed_events):
-    d = delayed_events.MCParticleCollection.Map_Relation('daughters', 'MCParticleCollection').compute()
+    d = delayed_events.MCParticleCollection.Map_Relation(
+        "daughters", "MCParticleCollection"
+    ).compute()
     assert isinstance(d, awkward.highlevel.Array)
     assert d.layout.branch_depth[1] == 3
 
 
 def test_MC_parents(delayed_events):
-    p = delayed_events.MCParticleCollection.Map_Relation('parents', 'MCParticleCollection').compute()
+    p = delayed_events.MCParticleCollection.Map_Relation(
+        "parents", "MCParticleCollection"
+    ).compute()
     assert isinstance(p, awkward.highlevel.Array)
     assert p.layout.branch_depth[1] == 3
-
-# Todo: Add Link tests
-#

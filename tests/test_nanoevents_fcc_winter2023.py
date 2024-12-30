@@ -4,7 +4,6 @@ import awkward
 import pytest
 
 from coffea.nanoevents import FCC, NanoEventsFactory
-from coffea.nanoevents.methods.vector import LorentzVectorRecord
 
 
 def _events(**kwargs):
@@ -92,6 +91,7 @@ def test_field_is_present(eager_events, delayed_events, field):
     assert field in eager_fields
     assert field in delayed_fields
 
+
 # Faulty Test: Returns Passed even with no events
 # For now, commenting it out
 # def test_lorentz_behavior(delayed_events):
@@ -149,7 +149,9 @@ def test_KaonParent_to_PionDaughters_Loop(eager_events):
     # Some K_S0 can go undetected (I think)
     # Ensure that at least one daughter is available per event
     bool_non_empty_daughter_list = awkward.num(daughters_of_K_S0, axis=2) > 0
-    daughters_of_K_S0 = daughters_of_K_S0[awkward.flatten(bool_non_empty_daughter_list, axis=1)]
+    daughters_of_K_S0 = daughters_of_K_S0[
+        awkward.flatten(bool_non_empty_daughter_list, axis=1)
+    ]
 
     # Are these valid daughter particles (pi+ or pi- or pi0)?
     flat_PDG = awkward.ravel(daughters_of_K_S0.PDG)
