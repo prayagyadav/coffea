@@ -127,25 +127,23 @@ class edm4hep_nanocollection(base.NanoCollection):
 
     @dask_method
     def Map_Link(self, generic_name, target_name):
-        # idx_field_name = generic_name + "_idx_" + target_name
         idx_field_name = "Link_" + generic_name + "_" + target_name
         if idx_field_name not in self.fields:
             raise FileNotFoundError(
                 f"{idx_field_name} not found in the current collection"
             )
-        return self._events()[target_name]._apply_nested_global_index(
+        return self._events()[target_name]._apply_global_index(
             self[idx_field_name]["index_Global"]
         )
 
     @Map_Link.dask
     def Map_Link(self, dask_array, generic_name, target_name):
-        # idx_field_name = generic_name + "_idx_" + target_name
         idx_field_name = "Link_" + generic_name + "_" + target_name
         if idx_field_name not in dask_array.fields:
             raise FileNotFoundError(
                 f"{idx_field_name} not found in the current collection"
             )
-        return dask_array._events()[target_name]._apply_nested_global_index(
+        return dask_array._events()[target_name]._apply_global_index(
             dask_array[idx_field_name]["index_Global"]
         )
 
@@ -251,92 +249,6 @@ _set_repr_name("EventHeader")
 class MCParticle(MomentumCandidate, edm4hep_nanocollection):
     """EDM4HEP Datatype: MCParticle"""
 
-    # Daughters
-    @dask_property
-    def get_daughters_index(self):
-        """
-        Obtain the global indices of the daughters of each and every MCParticle
-        - The output is a doubly nested awkward array
-        - Needs the presence of Particleidx1 collection
-        - The Particleidx1.index contains info about the daughters
-        """
-        return self.daughters.Particleidx1_rangesG
-
-    @get_daughters_index.dask
-    def get_daughters_index(self, dask_array):
-        """
-        Obtain the global indices of the daughters of each and every MCParticle
-        - The output is a doubly nested awkward array
-        - Needs the presence of Particleidx1 collection
-        - The Particleidx1.index contains info about the daughters
-        """
-        return dask_array.daughters.Particleidx1_rangesG
-
-    @dask_property
-    def get_daughters(self):
-        """
-        Obtain the actual MCParticle daughters to each and every MCParticle
-        - The output is a doubly nested awkward array
-        - Needs the presence of Particleidx1 collection
-        - The Particleidx1.index contains info about the daughters
-        """
-        return self._events().Particle._apply_global_index(self.get_daughters_index)
-
-    @get_daughters.dask
-    def get_daughters(self, dask_array):
-        """
-        Obtain the actual MCParticle daughters to each and every MCParticle
-        - The output is a doubly nested awkward array
-        - Needs the presence of Particleidx1 collection
-        - The Particleidx1.index contains info about the daughters
-        """
-        return dask_array._events().Particle._apply_global_index(
-            dask_array.get_daughters_index
-        )
-
-    # Parents
-    @dask_property
-    def get_parents_index(self):
-        """
-        Obtain the global indices of the parents of each and every MCParticle
-        - The output is a doubly nested awkward array
-        - Needs the presence of Particleidx0 collection
-        - The Particleidx0.index contains info about the parents
-        """
-        return self.parents.Particleidx0_rangesG
-
-    @get_parents_index.dask
-    def get_parents_index(self, dask_array):
-        """
-        Obtain the indices of the parents of each and every MCParticle
-        - The output is a doubly nested awkward array
-        - Needs the presence of Particleidx0 collection
-        - The Particleidx0.index contains info about the parents
-        """
-        return dask_array.parents.Particleidx0_rangesG
-
-    @dask_property
-    def get_parents(self):
-        """
-        Obtain the actual MCParticle parents to each and every MCParticle
-        - The output is a doubly nested awkward array
-        - Needs the presence of Particleidx0 collection
-        - The Particleidx0.index contains info about the parents
-        """
-        return self._events().Particle._apply_global_index(self.get_parents_index)
-
-    @get_parents.dask
-    def get_parents(self, dask_array):
-        """
-        Obtain the actual MCParticle parents to each and every MCParticle
-        - The output is a doubly nested awkward array
-        - Needs the presence of Particleidx0 collection
-        - The Particleidx0.index contains info about the parents
-        """
-        return dask_array._events().Particle._apply_global_index(
-            dask_array.get_parents_index
-        )
-
 
 _set_repr_name("MCParticle")
 behavior.update(awkward._util.copy_behaviors(MomentumCandidate, MCParticle, behavior))
@@ -396,7 +308,7 @@ _set_repr_name("ParticleID")
 
 @awkward.mixin_class(behavior)
 class Cluster(edm4hep_nanocollection):
-    """EDM4HEP Datatype: ParticleID"""
+    """EDM4HEP Datatype: Cluster"""
 
 
 _set_repr_name("Cluster")
@@ -446,58 +358,6 @@ _set_repr_name("Vertex")
 class ReconstructedParticle(MomentumCandidate, edm4hep_nanocollection):
     """EDM4HEP Datatype: Reconstructed particle"""
 
-    def match_collection(self, idx):
-        """Returns matched particles; pass on an ObjectID array."""
-        return self[idx.index]
-
-    @dask_property
-    def match_muons(self):
-        """Returns matched muons; drops none values"""
-        m = self._events().ReconstructedParticles._apply_global_index(
-            self.Muonidx0_indexGlobal
-        )
-        return awkward.drop_none(m, behavior=self.behavior)
-
-    @match_muons.dask
-    def match_muons(self, dask_array):
-        """Returns matched muons; drops none values"""
-        m = dask_array._events().ReconstructedParticles._apply_global_index(
-            dask_array.Muonidx0_indexGlobal
-        )
-        return awkward.drop_none(m, behavior=self.behavior)
-
-    @dask_property
-    def match_electrons(self):
-        """Returns matched electrons; drops none values"""
-        e = self._events().ReconstructedParticles._apply_global_index(
-            self.Electronidx0_indexGlobal
-        )
-        return awkward.drop_none(e, behavior=self.behavior)
-
-    @match_electrons.dask
-    def match_electrons(self, dask_array):
-        """Returns matched electrons; drops none values"""
-        e = dask_array._events().ReconstructedParticles._apply_global_index(
-            dask_array.Electronidx0_indexGlobal
-        )
-        return awkward.drop_none(e, behavior=self.behavior)
-
-    @dask_property
-    def match_gen(self):
-        """Returns the Gen level (MC) particle corresponding to the ReconstructedParticle"""
-        prepared = self._events().Particle[self._events().MCRecoAssociations.mc.index]
-        return prepared._apply_global_index(self.MCRecoAssociationsidx0_indexGlobal)
-
-    @match_gen.dask
-    def match_gen(self, dask_array):
-        """Returns the Gen level (MC) particle corresponding to the ReconstructedParticle"""
-        prepared = dask_array._events().Particle[
-            dask_array._events().MCRecoAssociations.mc.index
-        ]
-        return prepared._apply_global_index(
-            dask_array.MCRecoAssociationsidx0_indexGlobal
-        )
-
 
 _set_repr_name("ReconstructedParticle")
 behavior.update(
@@ -531,44 +391,6 @@ _set_repr_name("RecDqdx")
 @awkward.mixin_class(behavior)
 class RecoMCParticleLink(edm4hep_nanocollection):
     """EDM4HEP Link: MCRecoParticleLink"""
-
-    @property
-    def reco_mc_index(self):
-        """
-        Returns an array of indices mapping to generator particles for each reconstructed particle
-        """
-        arr_reco = self.reco.index[:, :, numpy.newaxis]
-        arr_mc = self.mc.index[:, :, numpy.newaxis]
-
-        joined_indices = awkward.concatenate((arr_reco, arr_mc), axis=2)
-
-        return joined_indices
-
-    @dask_property
-    def reco_mc(self):
-        """
-        Returns an array of records mapping to generator particle record for each reconstructed particle record
-        - Needs 'ReconstructedParticles' and 'Particle' collections
-        """
-        reco_index = self.reco.index
-        mc_index = self.mc.index
-        r = self._events().ReconstructedParticles[reco_index][:, :, numpy.newaxis]
-        m = self._events().Particle[mc_index][:, :, numpy.newaxis]
-
-        return awkward.concatenate((r, m), axis=2)
-
-    @reco_mc.dask
-    def reco_mc(self, dask_array):
-        """
-        Returns an array of records mapping to generator particle record for each reconstructed particle record
-        - Needs 'ReconstructedParticles' and 'Particle' collections
-        """
-        reco_index = dask_array.reco.index
-        mc_index = dask_array.mc.index
-        r = dask_array._events().ReconstructedParticles[reco_index][:, :, numpy.newaxis]
-        m = dask_array._events().Particle[mc_index][:, :, numpy.newaxis]
-
-        return awkward.concatenate((r, m), axis=2)
 
 
 _set_repr_name("RecoMCParticleLink")

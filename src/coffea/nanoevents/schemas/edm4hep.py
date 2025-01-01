@@ -132,6 +132,11 @@ class EDM4HEPSchema(BaseSchema):
     _two_vec_replacement = {"a": "x", "b": "y"}
     _replacement = {**_momentum_fields_e, **_two_vec_replacement}
 
+    copy_links_to_target_datatype = False
+
+    # Which collection to match if there are multiple matching collections for a given datatype
+    _datatype_priority = {}
+
     def __init__(self, base_form, *args, **kwargs):
         super().__init__(base_form)
         self._form["fields"], self._form["contents"] = self._build_collections(
@@ -692,8 +697,8 @@ class EDM4HEPSchema(BaseSchema):
             ):
                 continue
             set_matched_collections = set()
-            # dict_branches_to_copy = {}
-            # dict_docs_of_branches = {}
+            dict_branches_to_copy = {}
+            dict_docs_of_branches = {}
             for member in OneToOneRelations.keys():
                 if member in ["from", "to"]:
                     target_contents = {
@@ -742,6 +747,7 @@ class EDM4HEPSchema(BaseSchema):
                                 )
 
                         for matched_collection in matched_collections:
+
                             # grab the offset from one of the branches of the target datatype
                             target_datatype = self._datatype_mixins.get(
                                 matched_collection, None
@@ -791,42 +797,47 @@ class EDM4HEPSchema(BaseSchema):
                             }
                             # Also copy this to the matched_collections
                             # First collect all the branches that need to be copied
-                            set_matched_collections.update({matched_collection})
-                            # dict_branches_to_copy.update({
-                            #     f'Link_{member}_{matched_collection}':target_form
-                            # })
-                            # dict_docs_of_branches.update({
-                            #     f'Link_{member}_{matched_collection}':OneToOneRelations[member]["doc"]
-                            # })
+                            do_copy = False
+                            if self.copy_links_to_target_datatype:
+                                if len(self._datatype_priority.keys()) == 0:
+                                    raise RuntimeError(
+                                        "Cannot copy links if no priority is given!"
+                                    )
+                                if len(matched_collections) > 1:
+                                    # Choose which one to copy
+                                    priority = self._datatype_priority[target_datatype]
+                                    if matched_collection == priority:
+                                        do_copy = True
+                                else:
+                                    do_copy = True
+                            if do_copy:
+                                if member == "from":
+                                    set_matched_collections.update({matched_collection})
+                                dict_branches_to_copy.update(
+                                    {f"Link_{member}_{matched_collection}": target_form}
+                                )
+                                dict_docs_of_branches.update(
+                                    {
+                                        f"Link_{member}_{matched_collection}": OneToOneRelations[
+                                            member
+                                        ][
+                                            "doc"
+                                        ]
+                                    }
+                                )
 
-                            # for name, form in OneToOneRelations_content.items():
-                            #     branch_forms[
-                            #         f"{collection}/{collection}.Link_{member}_{matched_collection}_{name}"
-                            #     ] = form
-                            #     branch_forms[
-                            #         f"{collection}/{collection}.Link_{member}_{matched_collection}_{name}"
-                            #     ]["parameters"] = {
-                            #         "__doc__": OneToOneRelations[member]["doc"]
-                            #     }
-
-                            #     dict_branches_to_copy.update({
-                            #         f"Link_{collection}_{member}_{matched_collection}_{name}": form
-                            #     })
-                            #     dict_docs_of_branches.update({
-                            #         f"Link_{collection}_{member}_{matched_collection}_{name}":OneToOneRelations[member]["doc"]
-                            #     })
-
-            # #Finally, copy the available branches to the set of matched_collections
-            # for matched_collection in set_matched_collections:
-            #     for name in dict_branches_to_copy.keys():
-            #         branch_forms[
-            #             f"{matched_collection}/{matched_collection}.{name}"
-            #         ] = dict_branches_to_copy[name]
-            #         branch_forms[
-            #             f"{matched_collection}/{matched_collection}.{name}"
-            #         ]["content"]["parameters"] = {
-            #             "__doc__": dict_docs_of_branches[name]
-            #         }
+            # Finally, copy the available branches to the set of matched_collections
+            if self.copy_links_to_target_datatype:
+                for matched_collection in set_matched_collections:
+                    for name in dict_branches_to_copy.keys():
+                        branch_forms[
+                            f"{matched_collection}/{matched_collection}.{name}"
+                        ] = dict_branches_to_copy[name]
+                        branch_forms[
+                            f"{matched_collection}/{matched_collection}.{name}"
+                        ]["content"]["parameters"] = {
+                            "__doc__": dict_docs_of_branches[name]
+                        }
 
         return branch_forms
 

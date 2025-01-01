@@ -624,6 +624,22 @@ class FCCSchema_edm4hep1(EDM4HEPSchema):
         "TrackerHits": "TrackerHit3D",
     }
 
+    copy_links_to_target_datatype = True
+
+    # Which collection to match if there are multiple matching collections for a given datatype
+    _datatype_priority = {"ReconstructedParticle": "ReconstructedParticles"}
+
+    @classmethod
+    def behavior(cls):
+        """Behaviors necessary to implement this schema"""
+        from coffea.nanoevents.methods import base, fcc
+
+        behavior = {}
+        behavior.update(base.behavior)
+        behavior.update(vector.behavior)
+        behavior.update(fcc.behavior_edm4hep1)
+        return behavior
+
 
 class FCC:
     """
