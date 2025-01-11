@@ -144,7 +144,16 @@ class GenParticle(vector.PtEtaPhiMLorentzVector, base.NanoCollection):
 
     @dask_property
     def distinctChildrenDeep(self):
+<<<<<<< HEAD
         """Accessor to distinct child particles with different PDG id, or last ones in the chain"""
+=======
+        """
+        Accessor to distinct child particles with different PDG id, or last ones in the chain.
+        Note that this does not always find the correct children, since this sometimes depends
+        on the MC generator! See `here <https://github.com/scikit-hep/coffea/pull/698>` for more
+        information.
+        """
+>>>>>>> 46794a71 (EDM4HEPSchema and Newstyle FCCSchema)
         warnings.warn(
             "distinctChildrenDeep may not give correct answers for all generators!"
         )

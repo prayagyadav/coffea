@@ -180,7 +180,22 @@ class TreeMakerSchema(BaseSchema):
         Converting a TreeMakerSchema event into something that is uproot
         writeable. Based off the discussion thread here [1], but added specific
         cased to handled the nested structures define for TreeMaker n-tuples.
+<<<<<<< HEAD
         [1] https://github.com/CoffeaTeam/coffea/discussions/735
+=======
+        [1] https://github.com/scikit-hep/coffea/discussions/735
+
+        Parameters
+        ----------
+            events: TreeMakerSchema events
+                The TreeMakerSchema events to be turned into something uproot-writeable
+
+        Returns
+        -------
+            out: dict
+                An uproot-writeable dictionary representing the same information as the input
+                TreeMakerSchema events
+>>>>>>> 46794a71 (EDM4HEPSchema and Newstyle FCCSchema)
         """
         import awkward as ak
 

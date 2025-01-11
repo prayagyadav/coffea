@@ -3,6 +3,29 @@ import re
 
 from coffea.nanoevents.methods import vector
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
+<<<<<<< HEAD
+=======
+from coffea.nanoevents.schemas.edm4hep import EDM4HEPSchema
+from coffea.nanoevents.util import concat
+
+# Collection Regex #
+# Any branch name with a forward slash '/'
+# Example: 'ReconstructedParticles/ReconstructedParticles.energy'
+_all_collections = re.compile(r".*[\/]+.*")
+
+# Any branch name with a trailing underscore and an integer n between 0 to 9
+# Example: 'EFlowPhoton_1'
+_trailing_under = re.compile(r".*_[0-9]")
+
+# Any branch name with a hashtag '#'
+# Example: 'ReconstructedParticles#0/ReconstructedParticles#0.index'
+_idxs = re.compile(r".*[\#]+.*")
+
+# Any branch name with '[' and ']'
+# Example: 'ReconstructedParticles/ReconstructedParticles.covMatrix[10]'
+_square_braces = re.compile(r".*\[.*\]")
+
+>>>>>>> 46794a71 (EDM4HEPSchema and Newstyle FCCSchema)
 
 _all_collections = re.compile(r".*[\/]+.*")  # Any name with a forward slash /
 _trailing_under = re.compile(
@@ -344,9 +367,71 @@ class FCCSchema(BaseSchema):
         return behavior
 
 
+class FCCSchema_edm4hep1(EDM4HEPSchema):
+    """
+    Schema-builder for Future Circular Collider pregenerated samples.
+    https://fcc-physics-events.web.cern.ch/
+
+    This schema supports FCC samples produced with edm4hep version >= 1. It inherits
+    from the EDM4HEPSchema and adds a few more functionality.
+
+    For more info, check EDM4HEPSchema
+    """
+
+    _datatype_mixins = {
+        "CalorimeterHits": "CalorimeterHit",
+        "EFlowNeutralHadron": "Cluster",
+        "EFlowPhoton": "Cluster",
+        "EFlowTrack": "Track",
+        "EFlowTrack_dNdx": "RecDqdx",
+        "Electron_objIdx": "ObjectID",
+        "EventHeader": "EventHeader",
+        "Jet": "ReconstructedParticle",
+        "MCRecoAssociations": "RecoMCParticleLink",
+        "Muon_objIdx": "ObjectID",
+        "Particle": "MCParticle",
+        "ParticleIDs": "ParticleID",
+        "Photon_objIdx": "ObjectID",
+        "ReconstructedParticles": "ReconstructedParticle",
+        "TrackerHits": "TrackerHit3D",
+    }
+
+    copy_links_to_target_datatype = True
+
+    # Which collection to match if there are multiple matching collections for a given datatype
+    _datatype_priority = {"ReconstructedParticle": "ReconstructedParticles"}
+
+    @classmethod
+    def behavior(cls):
+        """Behaviors necessary to implement this schema"""
+        from coffea.nanoevents.methods import base, fcc
+
+        behavior = {}
+        behavior.update(base.behavior)
+        behavior.update(vector.behavior)
+        behavior.update(fcc.behavior_edm4hep1)
+        return behavior
+
+
 class FCC:
     """
     Class to choose the required variant of FCCSchema
+<<<<<<< HEAD
+=======
+    Example: from coffea.nanoevents import FCC
+             FCC.get_schema(version='latest')
+             latest --> FCCSchema_edm4hep1
+             pre-edm4hep1 --> FCCSchema
+             edm4hep1 --> FCCSchema_edm4hep1
+
+    Note: FCCSchema --> This schema has been made keeping the Spring2021 pre-generated samples (pre-edm4hep1).
+          Its also tested with Winter2023 samples with the uproot_options={"filter_name": lambda x : "PARAMETERS" not in x}
+          parameter when loading the fileset. This removes the "PARAMETERS" branch that is unreadable in uproot afaik.
+          More Schema variants could be added later.
+
+          FCCSchema_edm4hep1 --> This schema supports FCC samples produced with edm4hep version >= 1. It inherits
+          from the EDM4HEPSchema and adds a few more functionality.
+>>>>>>> 46794a71 (EDM4HEPSchema and Newstyle FCCSchema)
     """
 
     def __init__(self, version="latest"):
@@ -355,6 +440,10 @@ class FCC:
     @classmethod
     def get_schema(cls, version="latest"):
         if version == "latest":
+            return FCCSchema_edm4hep1
+        elif version == "pre-edm4hep1":
             return FCCSchema
+        elif version == "edm4hep1":
+            return FCCSchema_edm4hep1
         else:
             pass

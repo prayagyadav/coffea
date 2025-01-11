@@ -37,7 +37,11 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/asottile/pyupgrade
+<<<<<<< HEAD
   rev: v3.17.0
+=======
+  rev: v3.19.1
+>>>>>>> 46794a71 (EDM4HEPSchema and Newstyle FCCSchema)
   hooks:
   - id: pyupgrade
     args: ["--py38-plus"]
@@ -48,7 +52,11 @@ repos:
   - id: setup-cfg-fmt
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
+<<<<<<< HEAD
   rev: v0.6.5
+=======
+  rev: v0.8.6
+>>>>>>> 46794a71 (EDM4HEPSchema and Newstyle FCCSchema)
   hooks:
   - id: ruff
     args: [--fix, --show-fixes]
@@ -59,5 +67,9 @@ repos:
   rev: v2.3.0
   hooks:
   - id: codespell
+<<<<<<< HEAD
     args: ["--skip=*.ipynb","-L hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]
     exclude: dev/
+=======
+    args: ["--skip=*.ipynb,*.svg,*.yaml","-L hist,Hist,nd,SubJet,subjet,Subjet,PTD,ptd,fPt,fpt,Ser,ser,hda"]
+>>>>>>> 46794a71 (EDM4HEPSchema and Newstyle FCCSchema)
