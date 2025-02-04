@@ -347,7 +347,6 @@ class EDM4HEPSchema(BaseSchema):
                 mixins[name] = datatype
 
         mixins_dictionary = {**mixins, **self.extra_mixins}
-
         self._datatype_mixins = mixins_dictionary
 
     def _zip_components(self, collection_name, component_branches, branch_forms):
