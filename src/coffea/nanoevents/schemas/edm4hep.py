@@ -287,23 +287,24 @@ class EDM4HEPSchema(BaseSchema):
 
     @classmethod
     def version(cls, ver="latest"):
-        match ver:
-            case "latest":
-                return EDM4HEPSchema
-            case "00.99.01":
-                return EDM4HEPSchema
-            case "00.99.00":
-                return EDM4HEPSchema_v00_99_00
-            case "00.10.05":
-                return EDM4HEPSchema_v00_10_05
-            case "00.10.04":
-                return EDM4HEPSchema_v00_10_04
-            case "00.10.03":
-                return EDM4HEPSchema_v00_10_03
-            case "00.10.02":
-                return EDM4HEPSchema_v00_10_02
-            case "00.10.01":
-                return EDM4HEPSchema_v00_10_01
+        if ver == "latest":
+            return EDM4HEPSchema
+        elif ver == "00.99.01":
+            return EDM4HEPSchema
+        elif ver == "00.99.00":
+            return EDM4HEPSchema_v00_99_00
+        elif ver == "00.10.05":
+            return EDM4HEPSchema_v00_10_05
+        elif ver == "00.10.04":
+            return EDM4HEPSchema_v00_10_04
+        elif ver == "00.10.03":
+            return EDM4HEPSchema_v00_10_03
+        elif ver == "00.10.02":
+            return EDM4HEPSchema_v00_10_02
+        elif ver == "00.10.01":
+            return EDM4HEPSchema_v00_10_01
+        else:
+            raise FileNotFoundError(f"The version {ver} is unavailable.")
 
     def _create_mixin(self, base_form):
         """Extract mixin dictionary from typename info"""
